@@ -23,7 +23,7 @@ Implementation and evaluation of:
 |-----------|--------|----------|
 | Reproducible implementation | ✅ | 5+ replicates, fixed seeds, environment metadata |
 | Statistical rigor | ✅ | Paired one-sided t-tests, Bonferroni correction, Cohen's d, 95% CIs |
-| Real Rocketfuel topologies | ❌ | Synthetic BA graphs matching (|V|,|E|) only |
+| Real Rocketfuel topologies | ❌ | Synthetic BA graphs matching `(|V|, |E|)` only |
 | Statistically significant advantage | ❌ | 0/16 comparisons significant after Bonferroni |
 | "Never underperforms" claim | ❌ | FALSE — TA-HLP < HLP in ~50% of cells |
 | Effect size | ⚠️ | Small (avg Δ = 0.01%), inconsistent direction |
