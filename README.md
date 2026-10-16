@@ -67,10 +67,22 @@ hybrid-link-protection/
 │   └── plot_table_reproduction.py # bar charts for Tables 3 & 4
 ├── results/                    # CSV outputs (auto-created)
 ├── plots/                      # PNG outputs (auto-created)
+├── notebooks/                 # interactive & cloud reproduction notebooks
+│   └── hybrid_link_protection_kaggle.ipynb
 ├── main.py                     #   convenience entry-point
 ├── requirements.txt
 └── README.md
 ```
+
+---
+
+## Running on Kaggle / Google Colab
+
+A complete self-contained notebook [`notebooks/hybrid_link_protection_kaggle.ipynb`](file:///c:/Users/ihkok/GitHub/papers/hybrid-link-protection/notebooks/hybrid_link_protection_kaggle.ipynb) is provided for cloud execution:
+1. Open [Kaggle Notebooks](https://www.kaggle.com/code) $\rightarrow$ **New Notebook**.
+2. Go to **File** $\rightarrow$ **Import Notebook** and upload `notebooks/hybrid_link_protection_kaggle.ipynb`.
+3. Verify settings: Accelerator set to **None (CPU)** (provides 4 high-speed CPU cores and ~30 GB RAM).
+4. Run interactively or click **Save Version** $\rightarrow$ **Save & Run All (Commit)** for background execution. All plots and CSVs are packaged into a `.zip` in the output panel.
 
 ---
 
