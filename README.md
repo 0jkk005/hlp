@@ -31,7 +31,7 @@ Implementation and evaluation of:
 
 **Scientific Takeaway:** C-TA-HLP achieves its strongest, statistically robust advantage in networks characterized by heavy-tailed traffic distributions (such as real carrier backbones with $1,000\times\text{--}240,000\times$ NetFlow demand skew) under tight router TCAM constraints ($B \le 10\% |E|$). On uniform or dense mesh networks, topological reachability and traffic-weighted selection naturally converge.
 
-Detailed evaluation logs, statistical comparison outputs, and environment metadata are stored under `results_sndlib/`.
+Detailed evaluation logs, statistical comparison outputs, and environment metadata are stored under `results/sndlib/`.
 
 ---
 
@@ -70,10 +70,17 @@ hybrid-link-protection/
 ├── plotting/
 │   ├── plot_results.py         #   Budget-sweep + compute-time plots
 │   └── plot_table_reproduction.py # Bar charts for Tables 3 & 4
-├── results_sndlib/             # Canonical experimental outputs for SNDlib NetFlow
+├── results/                    # Unified experimental outputs
+│   ├── sndlib/                 #   Canonical experimental outputs for SNDlib NetFlow
+│   ├── all_topologies.csv      #   Base paper budget sweeps
+│   ├── table3_compute_time.csv #   Base paper Table 3
+│   ├── table4_availability.csv #   Base paper Table 4
+│   └── plot_*.png              #   Benchmark evaluation curves
+├── notebooks/                  # Self-contained Kaggle / Colab benchmark suites
+│   └── C_TA_HLP_Kaggle_Benchmark.ipynb # Complete single-run cloud replication suite
 ├── latex/                      # IEEE Transactions manuscript (IEEEtran)
 ├── tests/                      # Pytest unit & regression test suite
-├── main.py                     # Convenience entry-point
+├── main.py                     # Convenience entry-point (supports --complete-run)
 ├── requirements.txt            # Real, pinned package dependencies
 └── README.md
 ```
@@ -82,9 +89,9 @@ hybrid-link-protection/
 
 ## Running on Kaggle / Google Colab
 
-A complete self-contained notebook [`notebooks/hybrid_link_protection_kaggle.ipynb`](file:///c:/Users/ihkok/GitHub/papers/hybrid-link-protection/notebooks/hybrid_link_protection_kaggle.ipynb) is provided for cloud execution:
+A complete self-contained notebook [`notebooks/C_TA_HLP_Kaggle_Benchmark.ipynb`](file:///c:/Users/ihkok/GitHub/papers/hybrid-link-protection/notebooks/C_TA_HLP_Kaggle_Benchmark.ipynb) is provided for cloud execution:
 1. Open [Kaggle Notebooks](https://www.kaggle.com/code) $\rightarrow$ **New Notebook**.
-2. Go to **File** $\rightarrow$ **Import Notebook** and upload `notebooks/hybrid_link_protection_kaggle.ipynb`.
+2. Go to **File** $\rightarrow$ **Import Notebook** and upload `notebooks/C_TA_HLP_Kaggle_Benchmark.ipynb`.
 3. Verify settings: Accelerator set to **None (CPU)** (provides 4 high-speed CPU cores and ~30 GB RAM).
 4. Run interactively or click **Save Version** $\rightarrow$ **Save & Run All (Commit)** for background execution. All plots and CSVs are packaged into a `.zip` in the output panel.
 
@@ -122,6 +129,9 @@ The full evaluation uses the four Rocketfuel ISP topologies from the base paper 
 ## Quick start
 
 ```bash
+# 0. Single-command complete publication campaign (SNDlib + Tables 3 & 4 + Sweeps + Plots)
+python main.py --complete-run
+
 # 1. Demo on a synthetic topology
 python main.py
 
@@ -152,6 +162,7 @@ python -m experiments.run_table_reproduction --repeat 5 --trials 300
 ## CLI reference
 
 ### `main.py`
+- `--complete-run`    Run the complete publication benchmark campaign in a single unified run.
 - `--topology PATH`   GML file for the quick demo.
 - `--sweep`           Run the full budget sweep across `--topologies`.
 - `--topologies ...`  GML file names searched in `data/gml/`.

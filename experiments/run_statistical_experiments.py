@@ -588,11 +588,19 @@ def cli() -> None:
     ap.add_argument("--trials", type=int, default=DEFAULT_TRIALS)
     ap.add_argument("--replicates", type=int, default=DEFAULT_REPLICATES)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
-    ap.add_argument("--out", type=str, default=os.path.join(ROOT, "results_full"))
+    ap.add_argument("--out", type=str, default=None,
+                    help="Output directory (defaults to results/sndlib for SNDlib, or results/<topo-type>)")
     ap.add_argument("--traffic-variant", choices=list(TRAFFIC_MATRIX_VARIANTS.keys()), default="gravity")
     ap.add_argument("--run-ablation", action="store_true",
                     help="Run ablation with all traffic matrix variants")
     args = ap.parse_args()
+
+    if args.out is None:
+        if args.topo_type == "sndlib":
+            args.out = os.path.join(ROOT, "results", "sndlib")
+        else:
+            args.out = os.path.join(ROOT, "results", args.topo_type)
+    os.makedirs(args.out, exist_ok=True)
     
     # Determine topologies to use
     if args.topo_type == "sndlib":
