@@ -46,22 +46,29 @@ def dijkstra(graph: nx.Graph, source, weight: str = "cost") -> Tuple[Dict, Dict]
     return distances, predecessors
 
 
-def shortest_path(graph: nx.Graph, source, target, weight: str = "cost") -> List:
-    """Return the vertex sequence of a shortest path from ``source`` to ``target``."""
+def reconstruct_path(predecessors: Dict, source, target) -> List:
+    """Reconstruct vertex sequence from a predecessor map."""
     if source == target:
         return [source]
-    distances, predecessors = dijkstra(graph, source, weight=weight)
-    if distances[target] == float("inf"):
-        return []
     path = [target]
     cur = target
     while cur != source:
-        cur = predecessors[cur]
+        cur = predecessors.get(cur)
         if cur is None:
             return []
         path.append(cur)
     path.reverse()
     return path
+
+
+def shortest_path(graph: nx.Graph, source, target, weight: str = "cost") -> List:
+    """Return the vertex sequence of a shortest path from ``source`` to ``target``."""
+    if source == target:
+        return [source]
+    distances, predecessors = dijkstra(graph, source, weight=weight)
+    if distances.get(target, float("inf")) == float("inf"):
+        return []
+    return reconstruct_path(predecessors, source, target)
 
 
 def shortest_path_in_graph_minus_edge(

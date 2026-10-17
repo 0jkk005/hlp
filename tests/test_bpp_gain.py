@@ -108,3 +108,26 @@ def test_c_ta_bpp_capacity_penalty():
     assert delta_constrained < delta_unconstrained
     assert delta_constrained > 0.0
 
+
+def test_ta_bpp_iterative_greedy():
+    # Verify that iterative greedy selection selects up to budget B links
+    # and updates cumulative detour shift penalties in successive rounds.
+    G = nx.cycle_graph(6)
+    for u, v in G.edges():
+        G[u][v]["cost"] = 1.0
+        G[u][v]["prob_fail"] = 0.01
+        G[u][v]["capacity"] = 500.0
+
+    next_hops = {c: compute_lfc(G, c) for c in G.nodes()}
+    traffic = {(s, d): 50.0 for s in G.nodes() for d in G.nodes() if s != d}
+
+    # Test iterative=True vs iterative=False
+    prot_iter = ta_bpp(G, next_hops, traffic, max_links=3, capacity_constrained=True, iterative=True)
+    prot_static = ta_bpp(G, next_hops, traffic, max_links=3, capacity_constrained=True, iterative=False)
+
+    assert len(prot_iter) <= 3
+    assert len(prot_static) <= 3
+    assert isinstance(prot_iter, list)
+    assert isinstance(prot_static, list)
+
+

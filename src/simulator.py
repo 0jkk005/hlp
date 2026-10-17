@@ -26,7 +26,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 import networkx as nx
 
 from .path_construction import build_primary_paths, detect_failure_point
-from .shortest_path import shortest_path
+from .shortest_path import dijkstra, reconstruct_path, shortest_path
 from .utils import normalize_edge
 
 
@@ -69,6 +69,7 @@ def simulate_failures(
     seed: Optional[int] = None,
     failure_sampling: str = "probability_weighted",
     enforce_capacity: bool = True,
+    drop_model: str = "bottleneck",
 ) -> SimulationOutcome:
     """Run the Monte-Carlo single-link-failure experiment with dynamic capacity enforcement.
 
@@ -91,6 +92,8 @@ def simulate_failures(
     enforce_capacity
         If True and edge capacities exist, traffic exceeding link capacity
         is dropped proportionally due to buffer exhaustion.
+    drop_model
+        'bottleneck' (min surviving ratio) or 'multiplicative' (product across hops).
     """
     if failure_sampling not in {"uniform", "probability_weighted"}:
         raise ValueError(
@@ -148,6 +151,7 @@ def simulate_failures(
         repair_graph = graph.copy()
         if repair_graph.has_edge(*failed):
             repair_graph.remove_edge(*failed)
+        repair_spt: Dict[int, Tuple[Dict, Dict]] = {}
 
         # First pass: determine routing paths and accumulate post-failure loads
         resolved_flows: List[Tuple[Tuple[int, int], str, float, List[Tuple[int, int]]]] = []
@@ -222,7 +226,13 @@ def simulate_failures(
 
             # Stage 2: Fall back to BPP / TA-BPP multi-hop backup path if link is protected
             if failed_norm in protected:
-                repair_path = shortest_path(repair_graph, detecting, d)
+                if detecting not in repair_spt:
+                    repair_spt[detecting] = dijkstra(repair_graph, detecting)
+                distances, predecessors = repair_spt[detecting]
+                if distances.get(d, float("inf")) != float("inf"):
+                    repair_path = reconstruct_path(predecessors, detecting, d)
+                else:
+                    repair_path = []
                 if repair_path:
                     prefix_edges = [
                         normalize_edge(path[i], path[i + 1])
@@ -273,13 +283,16 @@ def simulate_failures(
             if should_enforce_capacity and path_edges:
                 for pe in path_edges:
                     ratio = edge_surv_ratio.get(pe, 1.0)
-                    delivery_factor = min(delivery_factor, ratio)
+                    if drop_model == "multiplicative":
+                        delivery_factor *= ratio
+                    else:
+                        delivery_factor = min(delivery_factor, ratio)
 
             if delivery_factor < 1.0:
                 capacity_drop_count += 1
 
-            # Topological delivery requires surviving without complete queue drop
-            if delivery_factor >= 0.5:
+            # Topological delivery requires reaching destination without complete disconnection
+            if delivery_factor > 0.0:
                 successful_deliveries += 1
 
             traffic_delivered += tm_val * delivery_factor

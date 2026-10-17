@@ -106,10 +106,25 @@ def randomized_traffic_matrix(
     return T
 
 
+def perturbed_traffic_matrix(
+    graph, scale: float = 1.0, seed: Optional[int] = None, noise_std: float = 0.2
+) -> Dict[Tuple[int, int], float]:
+    """Perturbed traffic matrix: multiplies baseline demands by (1 + N(0, noise_std))."""
+    import random
+    rng = random.Random(seed)
+    base_T = gravity_traffic_matrix(graph, scale=scale, seed=seed)
+    T = {}
+    for (s, d), val in base_T.items():
+        noise = max(0.01, 1.0 + rng.gauss(0.0, noise_std))
+        T[(s, d)] = val * noise
+    return T
+
+
 TRAFFIC_MATRIX_VARIANTS = {
     "gravity": gravity_traffic_matrix,
     "uniform": uniform_traffic_matrix,
     "randomized": randomized_traffic_matrix,
+    "perturbed": perturbed_traffic_matrix,
 }
 
 
@@ -256,6 +271,7 @@ def run_replicate(
     replicate_idx: int,
     base_seed: int,
     traffic_variant: str = "gravity",
+    headroom_factor: float = 1.5,
 ) -> List[ExperimentResult]:
     """Run one complete replicate across all budgets for a topology."""
     replicate_seed = base_seed + replicate_idx * 1000
@@ -263,10 +279,17 @@ def run_replicate(
     # Load topology
     if topo_type == "sndlib":
         from src.sndlib import load_sndlib
-        graph, traffic = load_sndlib(topo_name, seed=replicate_seed)
+        graph, traffic = load_sndlib(topo_name, seed=replicate_seed, headroom_factor=headroom_factor)
         if traffic_variant != "gravity":
-            traffic_fn = TRAFFIC_MATRIX_VARIANTS[traffic_variant]
-            traffic = traffic_fn(graph, seed=replicate_seed)
+            if traffic_variant == "perturbed":
+                rng = random.Random(replicate_seed)
+                traffic = {
+                    (s, d): val * max(0.01, 1.0 + rng.gauss(0.0, 0.2))
+                    for (s, d), val in traffic.items()
+                }
+            else:
+                traffic_fn = TRAFFIC_MATRIX_VARIANTS[traffic_variant]
+                traffic = traffic_fn(graph, seed=replicate_seed)
     elif topo_type == "rocketfuel":
         graph = load_rocketfuel(topo_name, seed=replicate_seed)
         traffic_fn = TRAFFIC_MATRIX_VARIANTS[traffic_variant]
@@ -317,6 +340,7 @@ def run_experiment(
     replicates: int,
     base_seed: int,
     traffic_variant: str = "gravity",
+    headroom_factor: float = 1.5,
 ) -> List[ExperimentResult]:
     """Run full experiment across topologies and replicates."""
     all_results = []
@@ -325,7 +349,7 @@ def run_experiment(
         for rep in range(replicates):
             rep_results = run_replicate(
                 topo_name, topo_type, budgets, num_trials,
-                rep, base_seed, traffic_variant
+                rep, base_seed, traffic_variant, headroom_factor=headroom_factor
             )
             all_results.extend(rep_results)
     
@@ -465,14 +489,16 @@ def compute_statistics(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Statistical
 
 def capture_environment_metadata() -> Dict:
     """Capture execution environment metadata for reproducibility."""
+    import scipy
+    import networkx as nx
     return {
         "python_version": platform.python_version(),
         "platform": platform.platform(),
         "processor": platform.processor(),
         "numpy_version": np.__version__,
         "pandas_version": pd.__version__,
-        "scipy_version": stats.__name__ if hasattr(stats, '__version__') else "unknown",
-        "networkx_version": None,  # filled below if available
+        "scipy_version": getattr(scipy, "__version__", "unknown"),
+        "networkx_version": getattr(nx, "__version__", "unknown"),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "command_line": " ".join(sys.argv),
     }
@@ -591,13 +617,21 @@ def cli() -> None:
     ap.add_argument("--out", type=str, default=None,
                     help="Output directory (defaults to results/sndlib for SNDlib, or results/<topo-type>)")
     ap.add_argument("--traffic-variant", choices=list(TRAFFIC_MATRIX_VARIANTS.keys()), default="gravity")
+    ap.add_argument("--headroom-factor", type=float, default=1.5,
+                    help="Engineering capacity headroom factor (default: 1.5)")
     ap.add_argument("--run-ablation", action="store_true",
                     help="Run ablation with all traffic matrix variants")
     args = ap.parse_args()
 
     if args.out is None:
         if args.topo_type == "sndlib":
-            args.out = os.path.join(ROOT, "results", "sndlib")
+            if args.traffic_variant != "gravity":
+                args.out = os.path.join(ROOT, "results", f"sndlib_{args.traffic_variant}")
+            elif abs(args.headroom_factor - 1.5) > 1e-4:
+                factor_str = str(args.headroom_factor).replace(".", "p")
+                args.out = os.path.join(ROOT, "results", f"sndlib_headroom_{factor_str}")
+            else:
+                args.out = os.path.join(ROOT, "results", "sndlib")
         else:
             args.out = os.path.join(ROOT, "results", args.topo_type)
     os.makedirs(args.out, exist_ok=True)
@@ -623,7 +657,7 @@ def cli() -> None:
         log.info("Running main experiment on %s topologies (%s)...", args.topo_type, list(topo_dict.keys()))
         results = run_experiment(
             topo_dict, args.topo_type, args.budgets, args.trials, args.replicates,
-            args.seed, args.traffic_variant
+            args.seed, args.traffic_variant, headroom_factor=args.headroom_factor
         )
         all_results.extend(results)
     

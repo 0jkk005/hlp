@@ -1,0 +1,17 @@
+topology,budget,metric,all_ta_ge_hlp,min_delta,max_delta,n_replicates
+abilene,2,topological_availability,False,-0.024242424242424176,0.008939393939393914,5
+abilene,2,traffic_availability,False,-0.006560174239915395,0.015065751307225872,5
+abilene,4,topological_availability,False,-0.025606060606060632,0.0,5
+abilene,4,traffic_availability,False,-0.021472233101314853,0.0068489406253398055,5
+abilene,6,topological_availability,False,-0.019545454545454533,0.011212121212121229,5
+abilene,6,traffic_availability,False,-0.01048889989449886,0.004197383770878971,5
+abilene,8,topological_availability,True,0.0,0.013181818181818183,5
+abilene,8,traffic_availability,True,0.0,0.004055557166252055,5
+geant,2,topological_availability,False,-0.0029004329004328477,-0.0002813852813852158,5
+geant,2,traffic_availability,False,-0.0007163087244022037,0.002187005610645776,5
+geant,4,topological_availability,False,-0.004588744588744587,0.0005627705627706536,5
+geant,4,traffic_availability,False,-0.0011136096362931447,0.0024434185789850016,5
+geant,6,topological_availability,False,-0.0009956709956709942,0.004025974025974044,5
+geant,6,traffic_availability,False,-0.0004692351916547599,0.002238034481351403,5
+geant,8,topological_availability,False,-0.0023160173160172715,0.0034632034632033903,5
+geant,8,traffic_availability,True,0.0,0.0020964229049326155,5

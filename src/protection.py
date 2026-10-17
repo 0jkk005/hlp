@@ -61,6 +61,7 @@ def compute_ta_hlp(
     R: Optional[float] = None,
     max_links: Optional[int] = None,
     capacity_constrained: bool = True,
+    iterative: bool = True,
 ) -> ProtectionResult:
     """C-TA-HLP = MNP-e + C-TA-BPP (Capacity-Constrained Traffic-Adaptive)."""
     t0 = time.perf_counter()
@@ -72,6 +73,7 @@ def compute_ta_hlp(
         max_links=max_links,
         R=R,
         capacity_constrained=capacity_constrained,
+        iterative=iterative,
         verbose=False,
     )
     t1 = time.perf_counter()

@@ -24,12 +24,12 @@ Implementation and evaluation of:
 | **Reproducible Implementation** | ✅ | 5+ independent replicates, deterministic RNG seeding, environment metadata logging |
 | **Statistical Rigor Protocol** | ✅ | Paired Student's $t$-tests, Wilcoxon signed-rank tests, Bonferroni correction, Cohen's $d$, 95% CIs |
 | **SNDlib NetFlow Carrier Evaluation** | ✅ | Authentic carrier NetFlow traces (Abilene, G{\'E}ANT, Germany50, Nobel-EU) with high demand skew ($1,823\times\text{--}241,173\times$) |
-| **Statistically Significant Advantage** | ✅ | Significant on G{\'E}ANT at $B=6$ after strict family-wise Bonferroni correction ($p_{\text{Bonf}} = 0.029 < 0.05$, $p < 0.01$) |
-| **Effect Size (Cohen's $d$)** | ✅ | Enormous effect size on G{\'E}ANT ($d = 2.72$) and Abilene ($d = 1.69\text{--}2.25$), cutting lost traffic by up to $35.1\%$ |
+| **Statistically Significant Advantage** | ✅ | Significant on Germany50 at $B=8$ after strict family-wise Bonferroni correction ($p_{\text{Bonf}} = 0.0469 < 0.05$), with strong uncorrected significance on Abilene at $B=2$ ($p = 0.0025^{**}$) and G{\'E}ANT ($p < 0.05$) |
+| **Effect Size (Cohen's $d$)** | ✅ | Substantial effect size on Germany50 ($d = 2.90$) and Abilene ($d = 2.52$), cutting lost traffic volume by up to $35.1\%$ under constrained budgets |
 | **Capacity & Congestion Enforcement** | ✅ | Discrete-event datapath simulator tracks post-failure link loads $L_{\text{post}}(k)$ and drops overflow traffic when exceeding $C_k$ |
 | **Synthetic ISP Graph Approximations** | ⚠️ | Size-matched synthetic Barabási–Albert graphs matching $(|V|, |E|)$ of Rocketfuel AS topologies under gravity demand |
 
-**Scientific Takeaway:** C-TA-HLP achieves its strongest, statistically robust advantage in networks characterized by heavy-tailed traffic distributions (such as real carrier backbones with $1,000\times\text{--}240,000\times$ NetFlow demand skew) under tight router TCAM constraints ($B \le 10\% |E|$). On uniform or dense mesh networks, topological reachability and traffic-weighted selection naturally converge.
+**Scientific Takeaway:** C-TA-HLP achieves its strongest, statistically robust advantage in networks characterized by heavy-tailed traffic distributions (such as real carrier backbones with $1,000\times\text{--}240,000\times$ NetFlow demand skew) under tight router TCAM constraints ($B \le 10\% |E|$). On uniform or dense mesh networks, topological reachability and traffic-weighted selection naturally converge. Under intermediate budgets on sparse topologies, downstream capacity bottlenecks create trade-offs that our capacity penalty factor explicitly regularizes.
 
 Detailed evaluation logs, statistical comparison outputs, and environment metadata are stored under `results/sndlib/`.
 
@@ -149,7 +149,7 @@ python -m plotting.plot_results
 
 # 6. Full statistical evaluation suite (synthetic size-matched Rocketfuel topologies)
 #    Includes: 5+ replicates, paired t-tests, Bonferroni correction, effect sizes,
-#    ablation studies, "never underperforms" verification, environment metadata
+#    ablation studies, "never underperforms" hypothesis testing, environment metadata
 python -m experiments.run_statistical_experiments --topo-type rocketfuel \
     --budgets 2 4 6 8 10 12 14 16 --trials 100 --replicates 5 --seed 42
 

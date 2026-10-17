@@ -4,8 +4,8 @@
   "processor": "Intel64 Family 6 Model 94 Stepping 3, GenuineIntel",
   "numpy_version": "2.5.3",
   "pandas_version": "3.0.6",
-  "scipy_version": "unknown",
-  "networkx_version": null,
-  "timestamp": "2026-10-17 15:39:19",
-  "command_line": "C:\\Users\\ihkok\\GitHub\\papers\\hybrid-link-protection\\experiments\\run_statistical_experiments.py --topo-type sndlib --topologies abilene geant germany50 nobel-eu --budgets 2 4 6 8 --trials 500 --replicates 5 --seed 42"
+  "scipy_version": "1.18.1",
+  "networkx_version": "3.7",
+  "timestamp": "2026-10-17 20:29:10",
+  "command_line": "experiments/run_statistical_experiments.py --topo-type sndlib --topologies abilene geant germany50 nobel-eu --budgets 2 4 6 8 --trials 500 --replicates 5 --seed 42 --out results/sndlib"
 }

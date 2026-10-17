@@ -21,6 +21,7 @@ def load_sndlib(
     name: str,
     data_dir: Optional[str] = None,
     seed: int = 42,
+    headroom_factor: float = 1.5,
 ) -> Tuple[nx.Graph, Dict[Tuple[int, int], float]]:
     """Load an authentic SNDlib network and its empirical NetFlow OD demand matrix.
 
@@ -96,7 +97,7 @@ def load_sndlib(
                 curr = p
 
     for (u, v), load in edge_loads.items():
-        G[u][v]["capacity"] = max(1000.0, float(round(load * 1.5, 0)))
+        G[u][v]["capacity"] = max(1000.0, float(round(load * headroom_factor, 0)))
 
     log.info(
         "Loaded SNDlib '%s': |V|=%d, |E|=%d, demands=%d, total_traffic=%.1f",

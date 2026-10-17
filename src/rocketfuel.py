@@ -136,18 +136,83 @@ def _synthetic_match(name: str, n: int, m_edges: int, seed: int = 42) -> nx.Grap
     return G
 
 
+def _extract_backbone_core(
+    G: nx.Graph, target_n: int, target_m: int, seed: int = 42
+) -> nx.Graph:
+    """Extract a connected backbone subgraph of target_n nodes from a large raw ISP map."""
+    if G.number_of_nodes() <= target_n:
+        return G
+
+    degrees = dict(G.degree())
+    sorted_nodes = sorted(degrees, key=degrees.get, reverse=True)
+
+    selected = {sorted_nodes[0]}
+    frontier = set(G.neighbors(sorted_nodes[0]))
+
+    for u in sorted_nodes[1:]:
+        if len(selected) >= target_n:
+            break
+        if u in frontier:
+            selected.add(u)
+            frontier.update(G.neighbors(u))
+            frontier.difference_update(selected)
+
+    # Breadth-first expansion if still below target_n
+    while len(selected) < target_n and frontier:
+        best_next = max(frontier, key=lambda x: degrees.get(x, 0))
+        selected.add(best_next)
+        frontier.update(G.neighbors(best_next))
+        frontier.difference_update(selected)
+
+    subG = G.subgraph(selected).copy()
+    largest = max(nx.connected_components(subG), key=len)
+    subG = subG.subgraph(largest).copy()
+
+    # Adjust edge count to target_m if needed
+    rng = random.Random(seed)
+    nodes_list = list(subG.nodes())
+    while subG.number_of_edges() < target_m and len(nodes_list) > 1:
+        u = rng.choice(nodes_list)
+        v = rng.choice(nodes_list)
+        if u != v and not subG.has_edge(u, v):
+            subG.add_edge(u, v, cost=float(rng.randint(1, 10)))
+    while subG.number_of_edges() > target_m:
+        edges_list = list(subG.edges())
+        e = edges_list[rng.randrange(len(edges_list))]
+        subG.remove_edge(*e)
+        if not nx.is_connected(subG):
+            subG.add_edge(*e)
+            break
+
+    return nx.convert_node_labels_to_integers(subG)
+
+
 def load_rocketfuel(
     name: str,
     data_dir: Optional[str] = None,
     seed: int = 42,
+    force_paper_scale: bool = True,
+    force_synthetic: bool = False,
 ) -> nx.Graph:
     """Load (or synthesise) a Rocketfuel topology by canonical name.
 
     Looks for ``<data_dir>/<name>.cch`` first, then ``<name>.edgelist``.
-    Falls back to a synthetic BA graph matching the paper's counts and
-    emits a warning so downstream consumers know the structure is not
-    the inferred one.
+    If ``force_paper_scale=True`` and the raw map is an unpruned CAIDA graph
+    (e.g., Sprint AS 1239 with 10k nodes), extracts the core backbone
+    matching the base paper's (|V|, |E|) counts.
     """
+    if name not in PAPER_COUNTS:
+        raise ValueError(f"Unknown Rocketfuel topology '{name}'. "
+                         f"Known: {list(PAPER_COUNTS)}")
+    target_n, target_m = PAPER_COUNTS[name]
+
+    if force_synthetic:
+        log.info("Generating synthetic BA graph for '%s' (|V|=%d, |E|=%d)",
+                 name, target_n, target_m)
+        G = _synthetic_match(name, target_n, target_m, seed=seed)
+        _annotate(G, seed=seed)
+        return G
+
     data_dir = data_dir or os.path.join(
         os.path.dirname(__file__), "..", "data", "rocketfuel"
     )
@@ -160,24 +225,31 @@ def load_rocketfuel(
             log.info("Loaded Rocketfuel '%s' from %s", name, path)
             G = fn(path)
             if G.number_of_nodes() == 0:
-                break
+                continue
             if not nx.is_connected(G):
                 largest = max(nx.connected_components(G), key=len)
                 G = G.subgraph(largest).copy()
-            G = nx.convert_node_labels_to_integers(G)
+
+            # If raw CAIDA map is orders of magnitude larger than paper's core slice
+            if force_paper_scale and G.number_of_nodes() > int(1.3 * target_n):
+                log.info(
+                    "Raw map for '%s' has %d nodes (paper target is %d). "
+                    "Extracting central backbone core matching paper dimensions.",
+                    name, G.number_of_nodes(), target_n
+                )
+                G = _extract_backbone_core(G, target_n, target_m, seed=seed)
+            else:
+                G = nx.convert_node_labels_to_integers(G)
+
             _annotate(G, seed=seed)
             return G
 
     # Fallback: synthetic graph matching the paper's (|V|, |E|).
-    if name not in PAPER_COUNTS:
-        raise ValueError(f"Unknown Rocketfuel topology '{name}'. "
-                           f"Known: {list(PAPER_COUNTS)}")
-    n, m_edges = PAPER_COUNTS[name]
     log.warning("Rocketfuel data file for '%s' not found in %s; "
                 "falling back to synthetic BA graph matching the paper's "
                 "(|V|=%d, |E|=%d). The structure is NOT the inferred ISP map.",
-                name, data_dir, n, m_edges)
-    G = _synthetic_match(name, n, m_edges, seed=seed)
+                name, data_dir, target_n, target_m)
+    G = _synthetic_match(name, target_n, target_m, seed=seed)
     _annotate(G, seed=seed)
     return G
 

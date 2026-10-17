@@ -1,0 +1,11 @@
+{
+  "python_version": "3.14.7",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 94 Stepping 3, GenuineIntel",
+  "numpy_version": "2.5.3",
+  "pandas_version": "3.0.6",
+  "scipy_version": "unknown",
+  "networkx_version": null,
+  "timestamp": "2026-10-17 18:19:00",
+  "command_line": "C:\\Users\\ihkok\\GitHub\\papers\\hybrid-link-protection\\experiments\\run_statistical_experiments.py --topo-type sndlib --topologies abilene geant --headroom-factor 2.0 --budgets 2 4 6 8 --trials 100 --replicates 5 --out results/ablation_headroom_2p0"
+}
