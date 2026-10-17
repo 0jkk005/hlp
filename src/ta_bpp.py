@@ -1,14 +1,13 @@
-"""TA-BPP -- Traffic-Aware Backup Path Protection.  *** new contribution ***
+"""C-TA-BPP -- Capacity-Constrained Traffic-Adaptive Backup Path Protection.
 
-Identical skeleton to ``bpp.bpp``; the only change is that the
-marginal-gain criterion used to rank key links becomes
+Identical skeleton to ``bpp.bpp``; the marginal-gain criterion used to rank
+key links incorporates both traffic demand weights and the downstream
+Congestion Penalty Factor:
 
-    Δ_T(e) = Σ_{(s,d) ∈ e.P} T(s,d) * [ A*(s,d) - A(s,d) ]
+    Δ_{C-T}(e) = Φ(e) * Σ_{(s,d) ∈ e.P} T(s,d) * p_e * A(P_repair(e))
 
-and the stopping rule may use a *backup-link budget* ``B``.
-
-This module is a drop-in replacement for ``bpp.bpp`` and is what the
-``TA-HLP`` paper presents.
+where Φ(e) = Π_{k ∈ P_repair(e)} min(1.0, C_k / L_post(k)) penalizes
+overloaded detours, and the stopping rule enforces a backup-link budget ``B``.
 """
 from __future__ import annotations
 
@@ -27,6 +26,24 @@ from .shortest_path import dijkstra
 from .utils import normalize_edge
 
 
+def compute_baseline_loads(
+    graph: nx.Graph,
+    paths: Dict[Tuple[int, int], List],
+    traffic: Dict[Tuple[int, int], float],
+) -> Dict[Tuple[int, int], float]:
+    """Compute baseline shortest-path traffic load L_0(k) for all edges."""
+    loads: Dict[Tuple[int, int], float] = {normalize_edge(*e): 0.0 for e in graph.edges()}
+    for (s, d), path in paths.items():
+        vol = traffic.get((s, d), 0.0)
+        if vol <= 0.0:
+            continue
+        for i in range(len(path) - 1):
+            e_norm = normalize_edge(path[i], path[i + 1])
+            if e_norm in loads:
+                loads[e_norm] += vol
+    return loads
+
+
 def compute_delta_T(
     graph: nx.Graph,
     e: Tuple[int, int],
@@ -34,8 +51,12 @@ def compute_delta_T(
     paths: Dict[Tuple[int, int], List],
     traffic: Dict[Tuple[int, int], float],
     path_avail_cache: Optional[Dict[Tuple[int, int], float]] = None,
+    baseline_loads: Optional[Dict[Tuple[int, int], float]] = None,
+    capacity_constrained: bool = False,
 ) -> float:
-    """Traffic-weighted marginal contribution of protecting link ``e``."""
+    """Traffic-weighted marginal contribution of protecting link ``e``,
+    incorporating downstream capacity congestion penalty factor Phi(e).
+    """
     by_source: Dict = {}
     for (s, d) in sd_pairs:
         by_source.setdefault(s, []).append(d)
@@ -45,6 +66,8 @@ def compute_delta_T(
     if H.has_edge(a, b):
         H.remove_edge(a, b)
     delta = 0.0
+    detour_shifts: Dict[Tuple[int, int], float] = {}
+
     for s, targets in by_source.items():
         dist_s, pred_s = dijkstra(H, s)
         for d in targets:
@@ -57,9 +80,36 @@ def compute_delta_T(
             new_path = _walk_pred(s, d, pred_s)
             if not new_path:
                 continue
-            a_new = path_availability(H, new_path)
-            gain = max(0.0, a_new - a_orig)
-            delta += traffic.get((s, d), 1.0) * gain
+            # Repair path availability in G \ {e}
+            a_repair = path_availability(H, new_path)
+            # Marginal traffic-weighted availability gain:
+            # When key link e fails (probability p_fail_e), the backup path rescues flow (s, d).
+            # The saved traffic volume is T(s, d) * p_fail_e * a_repair.
+            p_fail_e = float(graph[a][b].get("prob_fail", 0.01))
+            gain = p_fail_e * a_repair
+            flow_vol = traffic.get((s, d), 1.0)
+            delta += flow_vol * gain
+
+            # Track detour link loads for congestion penalty
+            if capacity_constrained and baseline_loads:
+                for i in range(len(new_path) - 1):
+                    k_edge = normalize_edge(new_path[i], new_path[i + 1])
+                    detour_shifts[k_edge] = detour_shifts.get(k_edge, 0.0) + flow_vol
+
+    # Apply continuous Congestion Penalty Factor:
+    # Phi(e) = prod_{k in repair} min(1.0, C_k / L_post(k))
+    if capacity_constrained and baseline_loads and detour_shifts:
+        phi = 1.0
+        for k_edge, shift in detour_shifts.items():
+            u_k, v_k = k_edge
+            if graph.has_edge(u_k, v_k):
+                cap = graph[u_k][v_k].get("capacity", None)
+                if cap is not None and cap > 0:
+                    post_load = baseline_loads.get(k_edge, 0.0) + shift
+                    if post_load > cap:
+                        phi *= min(1.0, cap / post_load)
+        delta *= phi
+
     return delta
 
 
@@ -69,9 +119,10 @@ def ta_bpp(
     traffic: Dict[Tuple[int, int], float],
     max_links: Optional[int] = None,
     R: Optional[float] = None,
+    capacity_constrained: bool = False,
     verbose: bool = False,
 ) -> List[Tuple[int, int]]:
-    """TA-BPP: greedy selection of key links weighted by traffic.
+    """C-TA-BPP: Capacity-Constrained Traffic-Adaptive selection of key links.
 
     Parameters
     ----------
@@ -79,12 +130,15 @@ def ta_bpp(
     next_hops_per_c : dict
         Output of MNP-e (or LFC).
     traffic : dict
-        ``T[(s,d)]`` from the gravity model.
+        ``T[(s,d)]`` from empirical NetFlow or gravity model.
     max_links : int or None
         Backup-link budget ``B``. Hard cap on protected links.
     R : float or None
         Optional topological-availability requirement ``A(G) >= R``.
         Stops early if both ``R`` and ``max_links`` would be met.
+    capacity_constrained : bool
+        If True, applies Congestion Penalty Factor Phi(e) to prevent
+        buffer exhaustion on detour paths.
     """
     paths = build_primary_paths(graph, next_hops_per_c)
     edge_index = build_edge_to_sd_index(paths)
@@ -93,14 +147,19 @@ def ta_bpp(
         (s, d): path_availability(graph, path) for (s, d), path in paths.items()
     }
     key_links = find_key_links(graph, next_hops_per_c, edge_index=edge_index)
+    baseline_loads = compute_baseline_loads(graph, paths, traffic) if capacity_constrained else None
 
     if verbose:
-        print(f"[TA-BPP] {len(key_links)} key links detected")
+        print(f"[C-TA-BPP] {len(key_links)} key links detected")
 
     deltas: Dict[Tuple[int, int], float] = {}
     for e, sd_pairs in key_links.items():
-        deltas[e] = compute_delta_T(graph, e, sd_pairs, paths, traffic,
-                                    path_avail_cache=path_avail_cache)
+        deltas[e] = compute_delta_T(
+            graph, e, sd_pairs, paths, traffic,
+            path_avail_cache=path_avail_cache,
+            baseline_loads=baseline_loads,
+            capacity_constrained=capacity_constrained,
+        )
 
     sorted_keys = sorted(deltas, key=lambda x: deltas[x], reverse=True)
 

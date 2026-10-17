@@ -60,11 +60,20 @@ def compute_ta_hlp(
     traffic: Dict[Tuple[int, int], float],
     R: Optional[float] = None,
     max_links: Optional[int] = None,
+    capacity_constrained: bool = True,
 ) -> ProtectionResult:
-    """TA-HLP = MNP-e + TA-BPP (our contribution)."""
+    """C-TA-HLP = MNP-e + C-TA-BPP (Capacity-Constrained Traffic-Adaptive)."""
     t0 = time.perf_counter()
     next_hops = {c: compute_mnp_e(graph, c) for c in graph.nodes()}
-    protected = ta_bpp(graph, next_hops, traffic, max_links=max_links, R=R, verbose=False)
+    protected = ta_bpp(
+        graph,
+        next_hops,
+        traffic,
+        max_links=max_links,
+        R=R,
+        capacity_constrained=capacity_constrained,
+        verbose=False,
+    )
     t1 = time.perf_counter()
     return ProtectionResult(
         method="TA-HLP",

@@ -1,6 +1,3 @@
-# Documentation and draft papers
-docx/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -52,6 +49,11 @@ htmlcov/
 
 # Temporary / intermediate experiment outputs
 results_*/
+archive/
+
+# Paper manuscripts and documentation drafts
+docx/
+latex/
 
 # IDE and editors
 .vscode/

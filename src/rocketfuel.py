@@ -56,29 +56,35 @@ PAPER_COUNTS = {
 
 
 def _parse_cch(path: str) -> nx.Graph:
-    """Parse a ``.cch`` Rocketfuel file (CAIDA style)."""
+    """Parse an authentic University of Washington / CAIDA ``.cch`` Rocketfuel file.
+
+    Format per README.cch:
+        uid @loc [+] [bb] (num_neigh) [&ext] -> <nuid-1> <nuid-2> ... {-euid} ... =name[!] rn
+    Internal intra-AS router neighbors are enclosed in angle brackets ``<...>``.
+    """
+    import re
     G = nx.Graph()
     with open(path, "r", encoding="utf-8", errors="ignore") as fh:
         for raw in fh:
             line = raw.strip()
-            if not line or line.startswith("#"):
+            if not line or line.startswith("#") or "->" not in line:
                 continue
-            parts = line.split()
-            # Heuristic: lines with >=4 numeric-ish tokens and an even
-            # count are link lines if the first token looks like a link id.
-            # Rocketfuel .cch maps vary; the safest rule is "tokens that
-            # are integers and count >=3 -> treat as edge, else as node".
+            parts = line.split("->")
+            left = parts[0].strip().split()
+            if not left:
+                continue
             try:
-                ints = [int(p) for p in parts]
+                u = int(left[0])
             except ValueError:
                 continue
-            if len(ints) >= 3:
-                # Looks like: <id?> <u> <v> [<weight> ...]
-                # If first token is in [0..2*|E|] we treat it as a link id.
-                u, v = ints[-3], ints[-2]
-                w = ints[-1] if len(ints) >= 4 else 1
+            if u < 0:
+                continue
+            right = parts[1].split("=")[0]
+            nbrs = re.findall(r"<(\d+)>", right)
+            for nbr_str in nbrs:
+                v = int(nbr_str)
                 if u != v:
-                    G.add_edge(u, v, cost=float(max(1, w)))
+                    G.add_edge(u, v, cost=1.0)
     return G
 
 
@@ -105,21 +111,22 @@ def _parse_edgelist(path: str) -> nx.Graph:
 
 def _synthetic_match(name: str, n: int, m_edges: int, seed: int = 42) -> nx.Graph:
     """A reproducible BA-like graph whose |V|,|E| match the paper."""
-    random.seed(seed)
-    np.random.seed(seed)
+    rng = random.Random(seed)
     # Choose BA m-parameter so final edge count is close to target.
     # BA(n, m_ba) has ~ (n - m_ba) * m_ba edges; solve roughly.
     m_ba = max(1, round(m_edges / max(1, n)))
     G = nx.barabasi_albert_graph(n=n, m=m_ba, seed=seed)
 
     # Adjust edge count by randomly adding/removing edges.
+    nodes = list(G.nodes())
     while G.number_of_edges() < m_edges:
-        u = random.choice(list(G.nodes()))
-        v = random.choice(list(G.nodes()))
+        u = rng.choice(nodes)
+        v = rng.choice(nodes)
         if u != v and not G.has_edge(u, v):
             G.add_edge(u, v)
     while G.number_of_edges() > m_edges:
-        e = random.choice(list(G.edges()))
+        edges = list(G.edges())
+        e = edges[rng.randrange(len(edges))]
         G.remove_edge(*e)
 
     # Strip to largest connected component so we have one network.
@@ -158,7 +165,7 @@ def load_rocketfuel(
                 largest = max(nx.connected_components(G), key=len)
                 G = G.subgraph(largest).copy()
             G = nx.convert_node_labels_to_integers(G)
-            _annotate(G)
+            _annotate(G, seed=seed)
             return G
 
     # Fallback: synthetic graph matching the paper's (|V|, |E|).
@@ -171,14 +178,17 @@ def load_rocketfuel(
                 "(|V|=%d, |E|=%d). The structure is NOT the inferred ISP map.",
                 name, data_dir, n, m_edges)
     G = _synthetic_match(name, n, m_edges, seed=seed)
-    _annotate(G)
+    _annotate(G, seed=seed)
     return G
 
 
-def _annotate(G: nx.Graph) -> None:
+def _annotate(G: nx.Graph, seed: int = 42) -> None:
     """Add simulation-required edge attributes (cost, prob_fail, capacity)."""
+    rng = random.Random(seed)
+    np_rng = np.random.default_rng(seed)
     for u, v in G.edges():
         if "cost" not in G[u][v]:
-            G[u][v]["cost"] = float(random.randint(1, 10))
-        G[u][v]["prob_fail"] = float(np.random.uniform(0.001, 0.02))
-        G[u][v]["capacity"] = float(random.randint(100, 1000))
+            G[u][v]["cost"] = float(rng.randint(1, 10))
+        G[u][v]["prob_fail"] = float(np_rng.uniform(0.001, 0.02))
+        G[u][v]["capacity"] = float(rng.randint(100, 1000))
+

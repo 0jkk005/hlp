@@ -38,6 +38,8 @@ class SimulationOutcome:
     recovery_count: int = 0
     bpp_recovery_count: int = 0
     mnp_recovery_count: int = 0
+    capacity_drop_count: int = 0
+    max_link_utilization: float = 0.0
     num_trials: int = 0
 
     def as_dict(self) -> Dict:
@@ -48,6 +50,8 @@ class SimulationOutcome:
             "recovery_count": self.recovery_count,
             "bpp_recovery_count": self.bpp_recovery_count,
             "mnp_recovery_count": self.mnp_recovery_count,
+            "capacity_drop_count": self.capacity_drop_count,
+            "max_link_utilization": self.max_link_utilization,
             "num_trials": self.num_trials,
         }
 
@@ -64,20 +68,29 @@ def simulate_failures(
     num_trials: int = 300,
     seed: Optional[int] = None,
     failure_sampling: str = "probability_weighted",
+    enforce_capacity: bool = True,
 ) -> SimulationOutcome:
-    """Run the Monte-Carlo single-link-failure experiment.
+    """Run the Monte-Carlo single-link-failure experiment with dynamic capacity enforcement.
 
     Parameters
     ----------
     graph
+        NetworkX graph with edge costs, optional capacities, and failure probabilities.
     next_hops_per_c
         MNP-e / LFC next-hop sets per computing node.
     protected_links
         BPP / TA-BPP protected edges (undirected).
     traffic
-        Optional gravity-model traffic matrix.
+        Optional origin-destination traffic demand matrix.
     num_trials
         Number of single-link failure events to draw.
+    seed
+        Random seed for reproducibility.
+    failure_sampling
+        'probability_weighted' or 'uniform'.
+    enforce_capacity
+        If True and edge capacities exist, traffic exceeding link capacity
+        is dropped proportionally due to buffer exhaustion.
     """
     if failure_sampling not in {"uniform", "probability_weighted"}:
         raise ValueError(
@@ -91,6 +104,12 @@ def simulate_failures(
     paths = build_primary_paths(graph, next_hops_per_c)
     protected = _protected_set(protected_links)
 
+    has_capacities = any(
+        "capacity" in graph[u][v] and graph[u][v]["capacity"] is not None
+        for u, v in edges
+    )
+    should_enforce_capacity = enforce_capacity and has_capacities
+
     total_traffic = sum(traffic.values()) if traffic else 0.0
 
     total_attempts = 0
@@ -99,6 +118,8 @@ def simulate_failures(
     recovery_count = 0
     bpp_recovery = 0
     mnp_recovery = 0
+    capacity_drop_count = 0
+    peak_mlu = 0.0
 
     edge_weights = [
         max(0.0, float(graph[u][v].get("prob_fail", 0.0)))
@@ -124,6 +145,13 @@ def simulate_failures(
     for _ in range(num_trials):
         failed = draw_edge()
         failed_norm = normalize_edge(*failed)
+        repair_graph = graph.copy()
+        if repair_graph.has_edge(*failed):
+            repair_graph.remove_edge(*failed)
+
+        # First pass: determine routing paths and accumulate post-failure loads
+        resolved_flows: List[Tuple[Tuple[int, int], str, float, List[Tuple[int, int]]]] = []
+        post_link_loads: Dict[Tuple[int, int], float] = {}
 
         for (s, d), path in paths.items():
             total_attempts += 1
@@ -131,41 +159,130 @@ def simulate_failures(
 
             idx = detect_failure_point(path, failed)
             if idx == -1:
-                # Path not affected.
-                successful_deliveries += 1
-                traffic_delivered += tm_val
+                # Path unaffected: uses normal primary path
+                path_edges = [
+                    normalize_edge(path[i], path[i + 1])
+                    for i in range(len(path) - 1)
+                ]
+                for pe in path_edges:
+                    post_link_loads[pe] = post_link_loads.get(pe, 0.0) + tm_val
+                resolved_flows.append(((s, d), "direct", tm_val, path_edges))
                 continue
 
             detecting = path[idx]
             hops = next_hops_per_c.get(detecting, {}).get(d, set())
+            valid_alts = sorted([h for h in hops if normalize_edge(detecting, h) != failed_norm])
 
-            if len(hops) > 1:
-                # MNP-e / LFC gives an alternate next-hop.
-                successful_deliveries += 1
-                traffic_delivered += tm_val
-                recovery_count += 1
-                mnp_recovery += 1
-                continue
+            recovered = False
+            rec_edges: List[Tuple[int, int]] = []
 
-            # No alternate next-hop; fall back to BPP / TA-BPP if available.
-            if failed_norm in protected:
-                # A protected link is only a valid recovery if the
-                # repair path exists after removing the failed link.
-                # This prevents the simulator from treating the protected
-                # set as an unconditional success flag.
-                repair_graph = graph.copy()
-                if repair_graph.has_edge(*failed):
-                    repair_graph.remove_edge(*failed)
-                repair_path = shortest_path(repair_graph, detecting, d)
-                if not repair_path:
+            # Stage 1: Try MNP-e / LFC alternate next-hop forwarding
+            if valid_alts:
+                alt = valid_alts[0]
+                curr = alt
+                visited = set(path[:idx + 1]) | {curr}
+                alt_nodes = [path[idx], curr]
+                ttl = 64
+                while ttl > 0:
+                    if curr == d:
+                        recovered = True
+                        break
+                    p_curr = paths.get((curr, d), [])
+                    if len(p_curr) < 2:
+                        break
+                    next_hop = p_curr[1]
+                    step_edge = normalize_edge(curr, next_hop)
+                    if step_edge == failed_norm:
+                        # Downstream router attempts to use the failed link
+                        break
+                    if next_hop in visited:
+                        # Forwarding loop detected!
+                        break
+                    visited.add(next_hop)
+                    alt_nodes.append(next_hop)
+                    curr = next_hop
+                    ttl -= 1
+
+                if recovered:
+                    prefix_edges = [
+                        normalize_edge(path[i], path[i + 1])
+                        for i in range(idx)
+                    ]
+                    detour_edges = [
+                        normalize_edge(alt_nodes[i], alt_nodes[i + 1])
+                        for i in range(len(alt_nodes) - 1)
+                    ]
+                    rec_edges = prefix_edges + detour_edges
+                    for pe in rec_edges:
+                        post_link_loads[pe] = post_link_loads.get(pe, 0.0) + tm_val
+                    resolved_flows.append(((s, d), "mnp", tm_val, rec_edges))
+                    recovery_count += 1
+                    mnp_recovery += 1
                     continue
-                successful_deliveries += 1
-                traffic_delivered += tm_val
-                recovery_count += 1
-                bpp_recovery += 1
+
+            # Stage 2: Fall back to BPP / TA-BPP multi-hop backup path if link is protected
+            if failed_norm in protected:
+                repair_path = shortest_path(repair_graph, detecting, d)
+                if repair_path:
+                    prefix_edges = [
+                        normalize_edge(path[i], path[i + 1])
+                        for i in range(idx)
+                    ]
+                    tunnel_edges = [
+                        normalize_edge(repair_path[i], repair_path[i + 1])
+                        for i in range(len(repair_path) - 1)
+                    ]
+                    rec_edges = prefix_edges + tunnel_edges
+                    for pe in rec_edges:
+                        post_link_loads[pe] = post_link_loads.get(pe, 0.0) + tm_val
+                    resolved_flows.append(((s, d), "bpp", tm_val, rec_edges))
+                    recovery_count += 1
+                    bpp_recovery += 1
+                    continue
+
+            # Unrecoverable failure
+            resolved_flows.append(((s, d), "lost", tm_val, []))
+
+        # Second pass: monitor detour link loads and enforce capacity bounds
+        trial_max_mlu = 0.0
+        edge_surv_ratio: Dict[Tuple[int, int], float] = {}
+
+        if should_enforce_capacity:
+            for pe, load in post_link_loads.items():
+                u, v = pe
+                cap = graph[u][v].get("capacity") if graph.has_edge(u, v) else None
+                if cap is not None and cap > 0:
+                    util = load / cap
+                    if util > trial_max_mlu:
+                        trial_max_mlu = util
+                    if load > cap:
+                        edge_surv_ratio[pe] = max(0.0, cap / load)
+                    else:
+                        edge_surv_ratio[pe] = 1.0
+                else:
+                    edge_surv_ratio[pe] = 1.0
+
+        if trial_max_mlu > peak_mlu:
+            peak_mlu = trial_max_mlu
+
+        for (s, d), status, tm_val, path_edges in resolved_flows:
+            if status == "lost":
                 continue
 
-            # Otherwise the traffic is lost.
+            delivery_factor = 1.0
+            if should_enforce_capacity and path_edges:
+                for pe in path_edges:
+                    ratio = edge_surv_ratio.get(pe, 1.0)
+                    delivery_factor = min(delivery_factor, ratio)
+
+            if delivery_factor < 1.0:
+                capacity_drop_count += 1
+
+            # Topological delivery requires surviving without complete queue drop
+            if delivery_factor >= 0.5:
+                successful_deliveries += 1
+
+            traffic_delivered += tm_val * delivery_factor
 
     avail = successful_deliveries / total_attempts if total_attempts > 0 else 1.0
     if total_traffic > 0:
@@ -180,5 +297,7 @@ def simulate_failures(
         recovery_count=recovery_count,
         bpp_recovery_count=bpp_recovery,
         mnp_recovery_count=mnp_recovery,
+        capacity_drop_count=capacity_drop_count,
+        max_link_utilization=peak_mlu,
         num_trials=num_trials,
     )

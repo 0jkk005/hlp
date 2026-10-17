@@ -93,13 +93,13 @@ class NetworkTopology:
         BA is used as a generic Internet-like generator when no GML is
         available. The paper uses BRITE Waxman; BA is a comparable model.
         """
-        random.seed(seed)
-        np.random.seed(seed)
+        rng = random.Random(seed)
+        np_rng = np.random.default_rng(seed)
         G = nx.barabasi_albert_graph(n, m, seed=seed)
         for u, v in G.edges():
-            G[u][v]["cost"] = float(random.randint(1, 10))
-            G[u][v]["prob_fail"] = float(np.random.uniform(0.001, 0.02))
-            G[u][v]["capacity"] = float(random.randint(100, 1000))
+            G[u][v]["cost"] = float(rng.randint(1, 10))
+            G[u][v]["prob_fail"] = float(np_rng.uniform(0.001, 0.02))
+            G[u][v]["capacity"] = float(rng.randint(100, 1000))
         log.info("Generated synthetic topology '%s': %d nodes, %d edges", name, n, G.number_of_edges())
         return cls(graph=G, name=name)
 

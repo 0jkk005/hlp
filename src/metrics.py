@@ -28,20 +28,21 @@ def average_path_stretch(graph: nx.Graph, paths: Dict[Tuple[int, int], List]) ->
     means no extra hop penalty; the protection mechanism has not bent
     traffic away from the shortest path.
     """
-    spt_lens: Dict[Tuple[int, int], int] = {}
+    spt_costs: Dict[Tuple[int, int], float] = {}
     for s in graph.nodes():
         dist_s, _ = dijkstra(graph, s)
         for d in graph.nodes():
             if s != d:
-                spt_lens[(s, d)] = dist_s[d]
+                spt_costs[(s, d)] = dist_s[d]
 
     total_stretch = 0.0
     count = 0
     for (s, d), path in paths.items():
-        sp_len = spt_lens.get((s, d), 1)
-        if sp_len > 0:
-            total_stretch += len(path) - 1
-            total_stretch /= sp_len
+        sp_cost = spt_costs.get((s, d), 0.0)
+        if sp_cost > 0 and len(path) >= 2:
+            path_cost = sum(graph[path[i]][path[i + 1]].get("cost", 1.0) for i in range(len(path) - 1))
+            stretch = path_cost / sp_cost
+            total_stretch += stretch
             count += 1
     return total_stretch / count if count > 0 else 1.0
 

@@ -88,10 +88,12 @@ def plot_traffic_avail(df: pd.DataFrame, out_dir: str) -> None:
         ax.legend(loc="lower right")
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        out = os.path.join(out_dir, f"traffic_avail_vs_budget_{topo}.png")
-        fig.savefig(out, dpi=200)
+        out_png = os.path.join(out_dir, f"traffic_avail_vs_budget_{topo}.png")
+        out_pdf = os.path.join(out_dir, f"traffic_avail_vs_budget_{topo}.pdf")
+        fig.savefig(out_png, dpi=300)
+        fig.savefig(out_pdf, format="pdf", bbox_inches="tight")
         plt.close(fig)
-        print(f"  saved -> {out}")
+        print(f"  saved -> {out_png} and {out_pdf}")
 
 
 def plot_topo_avail(df: pd.DataFrame, out_dir: str) -> None:
@@ -122,10 +124,12 @@ def plot_topo_avail(df: pd.DataFrame, out_dir: str) -> None:
         ax.legend(loc="lower right")
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        out = os.path.join(out_dir, f"topo_avail_vs_budget_{topo}.png")
-        fig.savefig(out, dpi=200)
+        out_png = os.path.join(out_dir, f"topo_avail_vs_budget_{topo}.png")
+        out_pdf = os.path.join(out_dir, f"topo_avail_vs_budget_{topo}.pdf")
+        fig.savefig(out_png, dpi=300)
+        fig.savefig(out_pdf, format="pdf", bbox_inches="tight")
         plt.close(fig)
-        print(f"  saved -> {out}")
+        print(f"  saved -> {out_png} and {out_pdf}")
 
 
 def plot_compute_time(csv_path: str, out_dir: str) -> None:
@@ -176,13 +180,17 @@ def main(argv=None) -> None:
     ap.add_argument("--plots-dir", default=os.path.join(ROOT, "plots"))
     args = ap.parse_args(argv)
 
-    sweep_csv = os.path.join(args.results_dir, "all_topologies.csv")
+    sweep_csv = os.path.join(args.results_dir, "all_topologies_summary.csv")
+    if not os.path.exists(sweep_csv):
+        sweep_csv = os.path.join(args.results_dir, "all_topologies.csv")
+
     if os.path.exists(sweep_csv):
+        print(f"Loading data from {sweep_csv}...")
         df = pd.read_csv(sweep_csv)
         plot_traffic_avail(df, args.plots_dir)
         plot_topo_avail(df, args.plots_dir)
     else:
-        print(f"  (no sweep CSV at {sweep_csv})")
+        print(f"  (no sweep CSV found in {args.results_dir})")
     plot_compute_time(os.path.join(args.results_dir, "compute_time.csv"), args.plots_dir)
     plot_bpp_vs_R(os.path.join(args.results_dir, "bpp_vs_availability.csv"), args.plots_dir)
 

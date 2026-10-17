@@ -87,11 +87,17 @@ def compute_delta_e(
 ) -> float:
     """Eq. (6): ``Δ(e) = Σ_{(s,d)∈e.P} [A*(s,d) - A(s,d)]``.
 
-    Approximation: ``A(s,d)`` and ``A*(s,d)`` are the availabilities of
-    the (single) primary shortest path and the new shortest path in
-    ``G \\ e``. Same approach the existing scaffold uses.
+    Under the single-link failure model, protecting key link ``e`` alters
+    end-to-end availability solely during the failure event ``F_e``
+    (occurring with probability ``p_e = prob_fail(e)``). Without
+    protection, flow ``(s,d)`` is dropped (availability 0 under ``F_e``);
+    with protection, the flow is rerouted across ``P_repair(e)`` with
+    operational availability ``A(P_repair(e))``. Thus, by total probability:
+        A*(s,d) - A(s,d) = P(F_e) * [A*(s,d | F_e) - A(s,d | F_e)]
+                         = p_e * A(P_repair(e))
+    which yields the exact marginal gain computed below.
 
-    Optimisation: group (s,d) pairs by source ``s`` so we only run one
+    Optimization: group (s,d) pairs by source ``s`` so we only run one
     Dijkstra per source per key link (instead of one per (s,d) pair).
     """
     # Group pairs by source for batched Dijkstra.
@@ -125,8 +131,13 @@ def compute_delta_e(
             new_path = _walk_pred(s, d, pred_s)
             if not new_path:
                 continue
-            a_new = path_availability(H, new_path)
-            gain = max(0.0, a_new - a_orig)
+            # Repair path availability in G \ {e}
+            a_repair = path_availability(H, new_path)
+            # The marginal availability gain of protecting key link e for flow (s, d):
+            # When e fails (with prob_fail_e), the precomputed backup path rescues the flow.
+            # Thus, the availability increase is prob_fail(e) * a_repair.
+            p_fail_e = float(graph[a][b].get("prob_fail", 0.01))
+            gain = p_fail_e * a_repair
             delta += gain
     return delta
 
