@@ -41,8 +41,10 @@ def main() -> int:
                     help="Generate plots after running the sweep")
     ap.add_argument("--include-extended-baselines", action="store_true",
                     help="Also include TBFH and DMPA-e in the sweep (slower).")
+    ap.add_argument("--allow-synthetic", action="store_true",
+                    help="Explicitly permit synthetic replacements for missing named datasets")
     ap.add_argument("--complete-run", action="store_true",
-                    help="Run the complete publication benchmark campaign in a single unified run")
+                    help="Run the prototype benchmark suite in a single run")
     args = ap.parse_args()
 
     results_dir = os.path.join(ROOT, "results")
@@ -53,11 +55,12 @@ def main() -> int:
             replicates=args.replicates if args.replicates != 1 else 5,
             seed=args.seed,
             results_dir=results_dir,
+            allow_synthetic=args.allow_synthetic,
         )
     elif args.sweep:
         run_sweep(args.topologies, args.budgets, args.trials, args.seed, results_dir,
                   include_extended_baselines=args.include_extended_baselines,
-                  replicates=args.replicates)
+                  replicates=args.replicates, allow_synthetic=args.allow_synthetic)
         if args.plot:
             # Reset sys.argv so plot_results' argparse doesn't pick up our flags.
             plot_main(argv=[])
@@ -72,14 +75,29 @@ def run_complete_campaign(
     replicates: int = 5,
     seed: int = 42,
     results_dir: str = os.path.join(ROOT, "results"),
+    allow_synthetic: bool = False,
 ) -> None:
-    """Run the complete publication benchmark campaign in a single unified run."""
+    """Run the prototype benchmark suite in a single run."""
     print("=" * 110)
-    print("STARTING COMPLETE EVALUATION CAMPAIGN (SINGLE UNIFIED RUN)")
+    print("STARTING PROTOTYPE EVALUATION CAMPAIGN (RESULTS REQUIRE AUDIT)")
     print("=" * 110)
 
-    # 1. Canonical SNDlib NetFlow statistical campaign
-    print("\n[Phase 1/4] Running Canonical SNDlib NetFlow Statistical Experiments...")
+    # Preflight all named inputs before a campaign overwrites any CSV files.
+    if not allow_synthetic:
+        missing = [name for name in ("Exodus", "Telstra")
+                   if not any(os.path.isfile(os.path.join(ROOT, "data", "rocketfuel", name + ext))
+                              for ext in (".cch", ".edgelist"))]
+        if missing:
+            raise FileNotFoundError(
+                f"Complete campaign requires Rocketfuel inputs: {missing}; "
+                "pass --allow-synthetic for explicitly synthetic comparisons"
+            )
+    for gml in ("Abilene.gml", "Geant2012.gml", "Sprint.gml"):
+        if not allow_synthetic and not os.path.isfile(os.path.join(ROOT, "data", "gml", gml)):
+            raise FileNotFoundError(f"Complete campaign missing GML {gml}")
+
+    # 1. SNDlib demand-instance statistical campaign
+    print("\n[Phase 1/4] Running SNDlib OD-demand scenario experiments...")
     from dataclasses import asdict
     import pandas as pd
     from experiments.run_statistical_experiments import (
@@ -95,6 +113,7 @@ def run_complete_campaign(
         num_trials=trials,
         replicates=replicates,
         base_seed=seed,
+        allow_synthetic=allow_synthetic,
     )
     raw_df = pd.DataFrame([asdict(r) for r in raw_results])
     summary, comparisons, never_underperforms = compute_statistics(raw_df)
@@ -106,8 +125,8 @@ def run_complete_campaign(
     print("\n[Phase 2/4] Running Base Paper Compute-Time & Availability Reproduction (Tables 3 & 4)...")
     from experiments.run_table_reproduction import run_table3, run_table4
     topos_table = ["Abilene", "Exodus", "Telstra"]
-    run_table3(topologies=topos_table, repeat=3, out_dir=results_dir)
-    run_table4(topologies=topos_table, num_trials=trials, seed=seed, out_dir=results_dir)
+    run_table3(topologies=topos_table, repeat=3, out_dir=results_dir, allow_synthetic=allow_synthetic)
+    run_table4(topologies=topos_table, num_trials=trials, seed=seed, out_dir=results_dir, allow_synthetic=allow_synthetic)
 
     # 3. Budget sweep across baseline topologies
     print("\n[Phase 3/4] Running Benchmark Budget Sweep across Topology Zoo GMLs...")
@@ -119,6 +138,7 @@ def run_complete_campaign(
         out_dir=results_dir,
         include_extended_baselines=False,
         replicates=1,
+        allow_synthetic=allow_synthetic,
     )
 
     # 4. Publication and diagnostic plotting

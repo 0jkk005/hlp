@@ -56,6 +56,7 @@ def run_sweep(
     out_dir: str,
     include_extended_baselines: bool = False,
     replicates: int = 1,
+    allow_synthetic: bool = False,
 ) -> pd.DataFrame:
     if replicates < 1:
         raise ValueError("replicates must be at least 1")
@@ -69,6 +70,11 @@ def run_sweep(
             if gml_path:
                 topo = NetworkTopology.from_gml(gml_path, seed=replicate_seed)
             else:
+                if not allow_synthetic:
+                    raise FileNotFoundError(
+                        f"Named topology {gml_path or os.path.join(ROOT, 'data', 'gml', topo_name)} missing; "
+                        "pass --allow-synthetic only for an explicitly synthetic experiment"
+                    )
                 n = 30
                 m = 3
                 log.warning(
@@ -77,7 +83,7 @@ def run_sweep(
                 )
                 topo = NetworkTopology.generate_random(
                     n=n, m=m, seed=replicate_seed,
-                    name=topo_name.replace(".gml", ""),
+                    name="synthetic_" + topo_name.replace(".gml", ""),
                 )
 
             G = topo.graph
@@ -230,6 +236,8 @@ def cli() -> None:
     ap.add_argument("--topologies", nargs="+", default=DEFAULT_TOPOS)
     ap.add_argument("--budgets", type=int, nargs="+", default=DEFAULT_BUDGETS)
     ap.add_argument("--trials", type=int, default=300)
+    ap.add_argument("--allow-synthetic", action="store_true",
+                    help="Explicitly permit labeled BA replacements for missing GMLs")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--replicates", type=int, default=1,
                     help="Independent topology/traffic/failure repetitions.")

@@ -15,7 +15,8 @@ We support two formats:
 2. Simple edge-list format -- one ``u v weight`` per line.
    Drop a file like ``data/rocketfuel/Exodus.edgelist``.
 
-If no file is found we fall back to a reproducible synthetic
+If no file is found we fail closed, unless ``allow_synthetic=True``
+explicitly requests a reproducible synthetic
 Barabasi-Albert graph whose node and edge counts match the values
 reported in Geng et al. 2020 (Table 3):
 
@@ -24,8 +25,8 @@ reported in Geng et al. 2020 (Table 3):
     Tiscali  : 161 nodes, 328 edges
     Sprint   : 315 nodes, 972 edges
 
-This fallback is explicitly logged as such -- it reproduces the *scale*
-of the topology (so compute-time experiments are still representative)
+This optional substitute is explicitly logged: it matches reported
+node/edge counts but is NOT a timing or structural reproduction
 but not its exact structure. For an exact reproduction, download the
 Rocketfuel dataset from
 https://www.caida.org/projects/ark/rocketfuel/ and drop the files into
@@ -193,6 +194,7 @@ def load_rocketfuel(
     seed: int = 42,
     force_paper_scale: bool = True,
     force_synthetic: bool = False,
+    allow_synthetic: bool = False,
 ) -> nx.Graph:
     """Load (or synthesise) a Rocketfuel topology by canonical name.
 
@@ -244,7 +246,14 @@ def load_rocketfuel(
             _annotate(G, seed=seed)
             return G
 
-    # Fallback: synthetic graph matching the paper's (|V|, |E|).
+    if not allow_synthetic:
+        raise FileNotFoundError(
+            f"Rocketfuel {name} input not found in {data_dir}. "
+            "Supply the original dataset, or explicitly request allow_synthetic=True "
+            "for a labeled synthetic sensitivity experiment."
+        )
+
+    # Explicit fallback: synthetic graph matching the paper's (|V|, |E|).
     log.warning("Rocketfuel data file for '%s' not found in %s; "
                 "falling back to synthetic BA graph matching the paper's "
                 "(|V|=%d, |E|=%d). The structure is NOT the inferred ISP map.",

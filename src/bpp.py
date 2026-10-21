@@ -1,11 +1,11 @@
-"""Original BPP -- Algorithm 3 in the paper.
+"""BPP-inspired topological greedy selection, NOT a faithful Algorithm 3.
 
-For every node ``v`` and destination ``d``, link ``(v, B_v(d))`` is a
-*key link* if MNP-e/LFC could not find any backup next-hop, i.e.
-``|N_v(d)| == 1``. Key links are aggregated, their marginal
-contribution ``Δ(e)`` (Eq. 6) is computed, and they are greedily
-protected in descending order until the network-availability
-requirement ``A(G) >= R`` is met.
+The base paper associates a key edge (v, B_v(d)) with detector-origin
+pair (v, d), then evaluates Eq. 6 by path-set availability. This code
+instead indexes ALL upstream (s,d) pairs traversing the edge and scores
+the local detour using a single-route reliability proxy. This deliberate
+extension cannot reproduce the base paper's availability threshold or
+published compute times; see docs/BASE_PAPER_COMPARISON.md.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import networkx as nx
 
 from .availability import network_availability, path_availability
-from .path_construction import build_primary_paths
+from .path_construction import build_primary_paths, detect_failure_point
 from .shortest_path import dijkstra, shortest_path_in_graph_minus_edge
 from .utils import normalize_edge
 
@@ -48,7 +48,7 @@ def find_key_links(
 ) -> Dict[Tuple[int, int], Set[Tuple[int, int]]]:
     """Return ``{undirected e: set of (s,d) pairs using e as a *directed* key link}``.
 
-    Implements Algorithm 3 lines 1-7. A directed key link occurs at
+    Extends Algorithm 3 lines 1-7 to *all upstream flows*. A directed key link occurs at
     node ``v`` toward ``B_v(d)``, when ``|N_v(d)| == 1``. The
     undirected link is what we register as "to protect".
 
@@ -74,7 +74,7 @@ def find_key_links(
 
 
 # --------------------------------------------------------------------------- #
-# Δ(e) -- topological per Algorithm 3 (Eq. 6)
+# Δ(e) -- single-route proxy; NOT the paper Algorithm 3 Eq. 6
 # --------------------------------------------------------------------------- #
 
 
@@ -85,60 +85,40 @@ def compute_delta_e(
     paths: Dict[Tuple[int, int], List],
     path_avail_cache: Optional[Dict[Tuple[int, int], float]] = None,
 ) -> float:
-    """Eq. (6): ``Δ(e) = Σ_{(s,d)∈e.P} [A*(s,d) - A(s,d)]``.
+    """Heuristic gain for a local repair when edge ``e`` fails.
 
-    Under the single-link failure model, protecting key link ``e`` alters
-    end-to-end availability solely during the failure event ``F_e``
-    (occurring with probability ``p_e = prob_fail(e)``). Without
-    protection, flow ``(s,d)`` is dropped (availability 0 under ``F_e``);
-    with protection, the flow is rerouted across ``P_repair(e)`` with
-    operational availability ``A(P_repair(e))``. Thus, by total probability:
-        A*(s,d) - A(s,d) = P(F_e) * [A*(s,d | F_e) - A(s,d | F_e)]
-                         = p_e * A(P_repair(e))
-    which yields the exact marginal gain computed below.
-
-    Optimization: group (s,d) pairs by source ``s`` so we only run one
-    Dijkstra per source per key link (instead of one per (s,d) pair).
+    A flow keeps its prefix through the upstream failure detector and
+    tunnels from there to its destination. The gain proxy multiplies the
+    failed-edge probability by a reliability proxy for the route. This is
+    not an exact conditional-failure marginal or a faithful derivation of
+    the base paper's Eq. (6); see docs/CORRECTIONS_CHECKLIST.md.
     """
-    # Group pairs by source for batched Dijkstra.
-    by_source: Dict = {}
-    for (s, d) in sd_pairs:
-        by_source.setdefault(s, []).append(d)
-
-    # Remove the key edge from a copy of the graph once.
     H = graph.copy()
     a, b = normalize_edge(*e)
-    if H.has_edge(a, b):
-        H.remove_edge(a, b)
-    # Pre-run Dijkstra from every source that needs it on H.
-    dij_cache: Dict = {}
-    for s in by_source:
-        dij_cache[s], pred_s = dijkstra(H, s)
-        # We also need path reconstruction; do it here.
-        dij_cache[s] = (dij_cache[s], pred_s)
-
+    H.remove_edge(a, b)
+    p_fail_e = float(graph[a][b].get("prob_fail", 0.01))
+    # Cache one SPT per detecting router, not per origin. At an intermediate
+    # failure, the packet keeps its already-forwarded prefix.
+    detector_spts: Dict = {}
     delta = 0.0
-    for s, targets in by_source.items():
-        dist_s, pred_s = dij_cache[s]
-        for d in targets:
-            orig_path = paths.get((s, d), [])
-            if not orig_path:
-                continue
-            a_orig = path_availability(graph, orig_path) if path_avail_cache is None else path_avail_cache.get((s, d), 0.0)
-            # Reconstruct the new shortest path from pred_s.
-            if dist_s[d] == float("inf"):
-                continue
-            new_path = _walk_pred(s, d, pred_s)
-            if not new_path:
-                continue
-            # Repair path availability in G \ {e}
-            a_repair = path_availability(H, new_path)
-            # The marginal availability gain of protecting key link e for flow (s, d):
-            # When e fails (with prob_fail_e), the precomputed backup path rescues the flow.
-            # Thus, the availability increase is prob_fail(e) * a_repair.
-            p_fail_e = float(graph[a][b].get("prob_fail", 0.01))
-            gain = p_fail_e * a_repair
-            delta += gain
+    for s, d in sd_pairs:
+        primary = paths.get((s, d), [])
+        if not primary:
+            continue
+        idx = detect_failure_point(primary, e)
+        if idx < 0:
+            continue
+        detector = primary[idx]
+        if detector not in detector_spts:
+            detector_spts[detector] = dijkstra(H, detector)
+        distances, predecessors = detector_spts[detector]
+        if distances[d] == float("inf"):
+            continue
+        detour = _walk_pred(detector, d, predecessors)
+        if detour:
+            # Reliability proxy; this is NOT an exact conditional single-
+            # failure probability (see docs/CORRECTIONS_CHECKLIST.md).
+            delta += p_fail_e * path_availability(H, primary[:idx] + detour)
     return delta
 
 
@@ -161,7 +141,7 @@ def bpp(
     max_links: Optional[int] = None,
     verbose: bool = False,
 ) -> List[Tuple[int, int]]:
-    """Algorithm 3 in the paper.
+    """Greedy topology-only BPP-inspired comparator (not exact Algorithm 3).
 
     Parameters
     ----------
@@ -206,7 +186,7 @@ def bpp(
         if max_links is None and current_A >= R:
             break
         protected.append(e)
-        current_A += deltas[e] / norm  # Eq. update in Algorithm 3 line 19
+        current_A += deltas[e] / norm  # additive proxy, not certified paper A(G)
 
     if verbose:
         print(f"[BPP] Protected {len(protected)} links; A(G) ~ {current_A:.4f}")

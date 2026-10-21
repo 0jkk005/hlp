@@ -2,14 +2,14 @@
 
 This script runs comprehensive experiments with:
 - Synthetic size-matched topologies (matching Rocketfuel paper V/E counts from Geng et al. 2020 Table 3)
-  Note: Real Rocketfuel .cch/.edgelist files from CAIDA are not included. Pipeline falls back to
-  reproducible synthetic BA graphs. For exact structural reproduction, place Rocketfuel files in data/rocketfuel/.
-- Multiple independent replicates (≥5) for statistical significance
+  Real Rocketfuel files are not included. Missing named files raise by default;
+  --allow-synthetic permits labeled BA substitutes (not paper reproduction).
+- Multiple simulation seeds by default (fixed demands are not independent measured traces)
 - Paired one-sided t-tests between HLP and TA-HLP with Bonferroni correction
 - Effect size calculations (Cohen's d) and 95% CIs
 - Ablation studies (randomized traffic weights, uniform traffic)
-- Verification of "never underperforms" claim across all raw cells
-- Publication-ready CSV outputs with statistical annotations and environment metadata
+- Diagnostic checks for cells where the proposed method underperforms
+- Historical-style CSV outputs; results need audit before publication
 """
 from __future__ import annotations
 
@@ -40,9 +40,9 @@ from src.utils import ensure_dir, get_logger
 log = get_logger("stat_exp")
 
 # ============================================================
-# Prespecified Statistical Protocol
+# Statistical Protocol in code (not independently preregistered)
 # ============================================================
-# HYPOTHESIS (one-sided, prespecified):
+# HYPOTHESIS (one-sided, implemented; no preregistration record):
 # H0: TA-HLP traffic availability <= HLP traffic availability
 # H1: TA-HLP traffic availability > HLP traffic availability
 # Test: paired one-sided t-test across replicates
@@ -182,7 +182,7 @@ class StatisticalComparison:
 
 @dataclass
 class NeverUnderperformsCheck:
-    """Verification of 'TA-HLP never underperforms HLP' claim."""
+    """Diagnostic per-cell check for underperformance."""
     topology: str
     budget: int
     metric: str
@@ -272,8 +272,10 @@ def run_replicate(
     base_seed: int,
     traffic_variant: str = "gravity",
     headroom_factor: float = 1.5,
+    allow_synthetic: bool = False,
 ) -> List[ExperimentResult]:
     """Run one complete replicate across all budgets for a topology."""
+    actual_topo_type = topo_type
     replicate_seed = base_seed + replicate_idx * 1000
     
     # Load topology
@@ -291,7 +293,11 @@ def run_replicate(
                 traffic_fn = TRAFFIC_MATRIX_VARIANTS[traffic_variant]
                 traffic = traffic_fn(graph, seed=replicate_seed)
     elif topo_type == "rocketfuel":
-        graph = load_rocketfuel(topo_name, seed=replicate_seed)
+        rocket_dir = os.path.join(ROOT, "data", "rocketfuel")
+        if not any(os.path.isfile(os.path.join(rocket_dir, topo_name + ext))
+                   for ext in (".cch", ".edgelist")):
+            actual_topo_type = "rocketfuel_synthetic"
+        graph = load_rocketfuel(topo_name, seed=replicate_seed, allow_synthetic=allow_synthetic)
         traffic_fn = TRAFFIC_MATRIX_VARIANTS[traffic_variant]
         traffic = traffic_fn(graph, seed=replicate_seed)
     else:
@@ -299,17 +305,7 @@ def run_replicate(
         if os.path.exists(path):
             graph = NetworkTopology.from_gml(path, seed=replicate_seed).graph
         else:
-            n, m_target = ROCKETFUEL_TOPOS.get(topo_name, (50, 3))
-            m_ba = max(1, min(n - 1, int(round(m_target / n))))
-            graph = NetworkTopology.generate_random(n=n, m=m_ba, seed=replicate_seed, name=topo_name).graph
-            while graph.number_of_edges() < m_target:
-                u = random.choice(list(graph.nodes()))
-                v = random.choice(list(graph.nodes()))
-                if u != v and not graph.has_edge(u, v):
-                    graph.add_edge(u, v)
-            while graph.number_of_edges() > m_target:
-                e = random.choice(list(graph.edges()))
-                graph.remove_edge(*e)
+            raise FileNotFoundError(f"Named GML {path} not found; do not silently replace it")
         traffic_fn = TRAFFIC_MATRIX_VARIANTS[traffic_variant]
         traffic = traffic_fn(graph, seed=replicate_seed)
 
@@ -326,7 +322,7 @@ def run_replicate(
             result.replicate = replicate_idx
             result.replicate_seed = replicate_seed + budget
             result.topology = topo_name
-            result.topology_type = topo_type
+            result.topology_type = actual_topo_type
             all_results.append(result)
     
     return all_results
@@ -341,6 +337,7 @@ def run_experiment(
     base_seed: int,
     traffic_variant: str = "gravity",
     headroom_factor: float = 1.5,
+    allow_synthetic: bool = False,
 ) -> List[ExperimentResult]:
     """Run full experiment across topologies and replicates."""
     all_results = []
@@ -349,15 +346,33 @@ def run_experiment(
         for rep in range(replicates):
             rep_results = run_replicate(
                 topo_name, topo_type, budgets, num_trials,
-                rep, base_seed, traffic_variant, headroom_factor=headroom_factor
+                rep, base_seed, traffic_variant, headroom_factor=headroom_factor,
+                allow_synthetic=allow_synthetic
             )
             all_results.extend(rep_results)
     
     return all_results
 
 
+def _paired_values(sub: pd.DataFrame, metric: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Join methods on explicit replicate IDs; reject ambiguous ablation mixtures."""
+    a = sub[sub["method"] == "HLP (Original)"]
+    b = sub[sub["method"] == "TA-HLP (Proposed)"]
+    for frame in (a, b):
+        if frame["replicate"].duplicated().any():
+            raise ValueError("Duplicate replicate IDs within a cell; run ablation variants separately")
+    pairs = a[["replicate", metric]].merge(
+        b[["replicate", metric]], on="replicate", how="outer",
+        suffixes=("_a", "_b"), validate="one_to_one", indicator=True,
+    )
+    if (pairs["_merge"] != "both").any():
+        raise ValueError("Unpaired replicate IDs in comparison")
+    pairs = pairs.sort_values("replicate")
+    return pairs[f"{metric}_a"].to_numpy(), pairs[f"{metric}_b"].to_numpy()
+
+
 def compute_statistics(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[StatisticalComparison], List[NeverUnderperformsCheck]]:
-    """Compute summary statistics, paired comparisons, and 'never underperforms' verification."""
+    """Compute summaries, paired comparisons, and underperformance diagnostics."""
     
     # Summary statistics (mean, std, count, CI95)
     group_cols = ["topology", "topology_type", "node_count", "edge_count", "budget", "method"]
@@ -400,8 +415,7 @@ def compute_statistics(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Statistical
             for metric in ["topological_availability", "traffic_availability"]:
                 sub = df[(df["topology"] == topology) & (df["budget"] == budget)]
                 
-                hlp_vals = sub[sub["method"] == "HLP (Original)"][metric].values
-                ta_vals = sub[sub["method"] == "TA-HLP (Proposed)"][metric].values
+                hlp_vals, ta_vals = _paired_values(sub, metric)
                 
                 if len(hlp_vals) >= 2 and len(ta_vals) >= 2 and len(hlp_vals) == len(ta_vals):
                     # Paired one-sided t-test
@@ -461,15 +475,14 @@ def compute_statistics(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Statistical
                         significant_bonferroni=p_val_bonf < 0.05,
                     ))
     
-    # Verify "never underperforms" claim across ALL raw cells
+    # Record counterexamples to dominance across ALL raw cells
     never_underperforms = []
     for topology in df["topology"].unique():
         for budget in df["budget"].unique():
             for metric in ["topological_availability", "traffic_availability"]:
                 sub = df[(df["topology"] == topology) & (df["budget"] == budget)]
                 
-                hlp_vals = sub[sub["method"] == "HLP (Original)"][metric].values
-                ta_vals = sub[sub["method"] == "TA-HLP (Proposed)"][metric].values
+                hlp_vals, ta_vals = _paired_values(sub, metric)
                 
                 if len(hlp_vals) >= 1 and len(ta_vals) >= 1 and len(hlp_vals) == len(ta_vals):
                     deltas = ta_vals - hlp_vals
@@ -579,7 +592,7 @@ def print_statistical_summary(comparisons: List[StatisticalComparison], never_un
     
     # Never underperforms verification
     print("\n" + "="*80)
-    print("VERIFICATION: 'TA-HLP never underperforms HLP' claim")
+    print("DIAGNOSTIC: cells where TA-HLP underperforms HLP")
     print("="*80)
     print(f"{'Topology':<12} {'Budget':>5} {'Metric':<25} {'All TA>=HLP':>10} {'Min Delta':>12} {'Max Delta':>12} {'Reps':>4}")
     print("-"*80)
@@ -590,7 +603,7 @@ def print_statistical_summary(comparisons: List[StatisticalComparison], never_un
             all_true = False
         metric_short = "Topo.Avail" if c.metric == "topological_availability" else "Traffic.Avail"
         print(f"{c.topology:<12} {c.budget:>5} {metric_short:<25} {status:>10} {c.min_delta:>12.6f} {c.max_delta:>12.6f} {c.n_replicates:>4}")
-    print(f"\nOverall claim holds: {all_true}")
+    print(f"\nNo underperformance in these sampled cells: {all_true}")
 
 
 # ============================================================
@@ -613,6 +626,8 @@ def cli() -> None:
     ap.add_argument("--budgets", type=int, nargs="+", default=DEFAULT_BUDGETS)
     ap.add_argument("--trials", type=int, default=DEFAULT_TRIALS)
     ap.add_argument("--replicates", type=int, default=DEFAULT_REPLICATES)
+    ap.add_argument("--allow-synthetic", action="store_true",
+                    help="Explicitly use labeled BA graph if Rocketfuel data is missing")
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
     ap.add_argument("--out", type=str, default=None,
                     help="Output directory (defaults to results/sndlib for SNDlib, or results/<topo-type>)")
@@ -657,7 +672,8 @@ def cli() -> None:
         log.info("Running main experiment on %s topologies (%s)...", args.topo_type, list(topo_dict.keys()))
         results = run_experiment(
             topo_dict, args.topo_type, args.budgets, args.trials, args.replicates,
-            args.seed, args.traffic_variant, headroom_factor=args.headroom_factor
+            args.seed, args.traffic_variant, headroom_factor=args.headroom_factor,
+            allow_synthetic=args.allow_synthetic
         )
         all_results.extend(results)
     
@@ -668,9 +684,15 @@ def cli() -> None:
             if topo_dict:
                 results = run_experiment(
                     topo_dict, args.topo_type, args.budgets, args.trials, args.replicates,
-                    args.seed + 10000, variant
+                    args.seed + 10000, variant, headroom_factor=args.headroom_factor,
+                    allow_synthetic=args.allow_synthetic,
                 )
-                all_results.extend(results)
+                # Keep each traffic variant in a distinct statistical family.
+                # Mixing them reuses replicate IDs and corrupts pairing.
+                variant_df = pd.DataFrame([asdict(r) for r in results])
+                variant_summary, variant_comparisons, variant_checks = compute_statistics(variant_df)
+                save_results(results, variant_summary, variant_comparisons, variant_checks,
+                             os.path.join(args.out, "ablation_" + variant), env_meta)
     
     # Compute statistics
     df = pd.DataFrame([asdict(r) for r in all_results])

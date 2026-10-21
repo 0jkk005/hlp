@@ -1,0 +1,11 @@
+{
+  "python_version": "3.11.2",
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "processor": "",
+  "numpy_version": "2.4.6",
+  "pandas_version": "3.0.6",
+  "scipy_version": "1.17.1",
+  "networkx_version": "3.6.1",
+  "timestamp": "2026-10-21 17:08:38",
+  "command_line": "/home/user/hlp/experiments/run_statistical_experiments.py --topo-type sndlib --budgets 2 4 6 8 --trials 500 --replicates 5 --seed 42 --out results/corrected_sndlib"
+}

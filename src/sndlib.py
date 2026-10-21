@@ -1,4 +1,4 @@
-"""SNDlib topology and empirical NetFlow demand matrix loader."""
+"""SNDlib network-design topology and OD demand instance loader."""
 from __future__ import annotations
 
 import json
@@ -23,7 +23,10 @@ def load_sndlib(
     seed: int = 42,
     headroom_factor: float = 1.5,
 ) -> Tuple[nx.Graph, Dict[Tuple[int, int], float]]:
-    """Load an authentic SNDlib network and its empirical NetFlow OD demand matrix.
+    """Load a bundled SNDlib-derived network and its OD demand instance.
+
+    Origin, units, and measurement status must be audited per instance; see
+    docs/CORRECTIONS_CHECKLIST.md. Capacities below are synthetic headroom.
 
     Returns
     -------
@@ -60,7 +63,7 @@ def load_sndlib(
     mapping = {old: new for new, old in enumerate(sorted(G.nodes()))}
     G = nx.relabel_nodes(G, mapping)
 
-    # 2. Extract Empirical NetFlow Demands
+    # 2. Extract bundled OD demand values (not proven NetFlow)
     raw_demands = data.get("graph", {}).get("demands", {})
     traffic_matrix: Dict[Tuple[int, int], float] = {}
 

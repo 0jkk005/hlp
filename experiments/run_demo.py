@@ -26,10 +26,10 @@ from src.metrics import backup_overhead_ratio
 
 
 def main(topology_path: str | None, budget: int, num_trials: int, seed: int) -> None:
-    if topology_path and os.path.exists(topology_path):
-        topo = NetworkTopology.from_gml(topology_path)
+    if topology_path:
+        topo = NetworkTopology.from_gml(topology_path, seed=seed)
     else:
-        print(f"[demo] Topology '{topology_path}' not found -> generating synthetic graph (n=30, m=3)")
+        print("[demo] No topology provided -> generating an explicitly synthetic graph (n=30, m=3)")
         topo = NetworkTopology.generate_random(n=30, m=3, seed=seed)
 
     G = topo.graph

@@ -68,7 +68,8 @@ def run_compute_time(sizes: List[int], degrees: List[int], seed: int, out_dir: s
 
 
 def run_bpp_vs_availability(topologies: List[str], R_values: List[float],
-                             seed: int, out_dir: str) -> pd.DataFrame:
+                             seed: int, out_dir: str,
+                             allow_synthetic: bool = False) -> pd.DataFrame:
     """Number of BPP links needed to meet availability threshold R per topology."""
     ensure_dir(out_dir)
     rows: List[Dict] = []
@@ -77,8 +78,10 @@ def run_bpp_vs_availability(topologies: List[str], R_values: List[float],
         if os.path.exists(path):
             topo = NetworkTopology.from_gml(path)
         else:
+            if not allow_synthetic:
+                raise FileNotFoundError(f"Named GML {path} missing; pass --allow-synthetic to label BA output")
             topo = NetworkTopology.generate_random(n=50, m=3, seed=seed,
-                                                    name=topo_name.replace(".gml", ""))
+                                                    name="synthetic_" + topo_name.replace(".gml", ""))
         G = topo.graph
         nh = {c: compute_mnp_e(G, c) for c in G.nodes()}
         for R in R_values:
@@ -105,11 +108,14 @@ def cli() -> None:
                     default=["Abilene.gml", "Sprint.gml", "Geant2012.gml"])
     ap.add_argument("--R_values", type=float, nargs="+",
                     default=[0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 1.0])
+    ap.add_argument("--allow-synthetic", action="store_true",
+                    help="Explicitly permit labeled synthetic substitutes for missing GMLs")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=str, default=os.path.join(ROOT, "results"))
     args = ap.parse_args()
     run_compute_time(args.sizes, args.degrees, args.seed, args.out)
-    run_bpp_vs_availability(args.topologies, args.R_values, args.seed, args.out)
+    run_bpp_vs_availability(args.topologies, args.R_values, args.seed, args.out,
+                            allow_synthetic=args.allow_synthetic)
 
 
 if __name__ == "__main__":

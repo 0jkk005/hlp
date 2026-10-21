@@ -1,4 +1,6 @@
-"""Loop-Free Criterion (LFC) -- Algorithm 1 in the paper.
+"""Loop-Free Criterion (LFC) baseline -- paper Section IV.A.
+
+Paper Algorithm 1 is MNP, not LFC.
 
 The naive implementation: one Dijkstra per neighbour of ``c`` (this is
 what makes LFC expensive -- O(deg(c) * |E| lg |V|)). Kept here as a

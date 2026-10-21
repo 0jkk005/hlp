@@ -1,10 +1,10 @@
 """Network-availability metrics.
 
-Topological availability (paper definition, Eq. (3)):
-    A(s,d) computed via Inclusion-Exclusion over all paths (intractable
-    in general -- we provide both an exact variant for tiny graphs and
-    a single-path approximation used everywhere in the experiments).
-    A(G)  = mean of A(s,d) over (s,d).
+The paper defines A(s,d) using inclusion-exclusion over its forwarding
+path set (Eqs. 1–2) and A(G) as their mean (Eq. 3). This module uses
+a SINGLE-PATH proxy in experiments; `exact_end_to_end_availability`
+only enumerates physical simple paths to a cutoff and is not guaranteed
+to reproduce the paper's forwarding-path set or full availability.
 
 Traffic-weighted availability (TA-HLP contribution):
     T_A(G) = sum_{s!=d} T(s,d) * A(s,d)  /  sum T(s,d)
@@ -28,14 +28,19 @@ def path_availability(graph: nx.Graph, path: Sequence) -> float:
     if len(path) < 2:
         return 1.0
     p = 1.0
+    used_edges = set()
     for i in range(len(path) - 1):
         u, v = path[i], path[i + 1]
+        edge = normalize_edge(u, v)
+        if edge in used_edges:
+            continue  # A backtracking tunnel reuses the SAME physical link.
+        used_edges.add(edge)
         p *= (1.0 - graph[u][v].get("prob_fail", 0.0))
     return p
 
 
 def network_availability(graph: nx.Graph, paths: Dict[Tuple[int, int], List]) -> float:
-    """Single-path approximation of A(G) (Eq. 3)."""
+    """Mean single-path reliability proxy, NOT paper Eq. 3 availability."""
     n = graph.number_of_nodes()
     if n <= 1:
         return 1.0
@@ -87,7 +92,10 @@ def _enumerate_paths(graph: nx.Graph, source, target, cutoff: int = 6) -> List[L
 
 
 def exact_end_to_end_availability(graph: nx.Graph, source, target, cutoff: int = 5) -> float:
-    """Eq. (2) in the paper: Inclusion-Exclusion over enumerated simple paths.
+    """Inclusion-exclusion over enumerated *physical* simple paths.
+
+    The paper's Eq. 2 operates on usable forwarding paths; this diagnostic
+    is not a validated replica of that experiment.
 
     Exponential in path count; intended only for very small graphs (sanity checks).
     """

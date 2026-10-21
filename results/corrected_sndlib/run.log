@@ -1,0 +1,132 @@
+[17:08:38] INFO stat_exp: Running main experiment on sndlib topologies (['abilene', 'geant', 'germany50', 'nobel-eu'])...
+[17:08:38] INFO sndlib: Loaded SNDlib 'abilene': |V|=12, |E|=15, demands=132, total_traffic=3000002.0
+[17:08:38] INFO stat_exp: Replicate 0/abilene: sndlib (V=12, E=15, traffic=gravity)
+[17:08:41] INFO sndlib: Loaded SNDlib 'abilene': |V|=12, |E|=15, demands=132, total_traffic=3000002.0
+[17:08:41] INFO stat_exp: Replicate 1/abilene: sndlib (V=12, E=15, traffic=gravity)
+[17:08:44] INFO sndlib: Loaded SNDlib 'abilene': |V|=12, |E|=15, demands=132, total_traffic=3000002.0
+[17:08:44] INFO stat_exp: Replicate 2/abilene: sndlib (V=12, E=15, traffic=gravity)
+[17:08:46] INFO sndlib: Loaded SNDlib 'abilene': |V|=12, |E|=15, demands=132, total_traffic=3000002.0
+[17:08:46] INFO stat_exp: Replicate 3/abilene: sndlib (V=12, E=15, traffic=gravity)
+[17:08:49] INFO sndlib: Loaded SNDlib 'abilene': |V|=12, |E|=15, demands=132, total_traffic=3000002.0
+[17:08:49] INFO stat_exp: Replicate 4/abilene: sndlib (V=12, E=15, traffic=gravity)
+[17:08:52] INFO sndlib: Loaded SNDlib 'geant': |V|=22, |E|=36, demands=462, total_traffic=2999992.0
+[17:08:52] INFO stat_exp: Replicate 0/geant: sndlib (V=22, E=36, traffic=gravity)
+[17:09:00] INFO sndlib: Loaded SNDlib 'geant': |V|=22, |E|=36, demands=462, total_traffic=2999992.0
+[17:09:00] INFO stat_exp: Replicate 1/geant: sndlib (V=22, E=36, traffic=gravity)
+[17:09:09] INFO sndlib: Loaded SNDlib 'geant': |V|=22, |E|=36, demands=462, total_traffic=2999992.0
+[17:09:09] INFO stat_exp: Replicate 2/geant: sndlib (V=22, E=36, traffic=gravity)
+[17:09:17] INFO sndlib: Loaded SNDlib 'geant': |V|=22, |E|=36, demands=462, total_traffic=2999992.0
+[17:09:17] INFO stat_exp: Replicate 3/geant: sndlib (V=22, E=36, traffic=gravity)
+[17:09:25] INFO sndlib: Loaded SNDlib 'geant': |V|=22, |E|=36, demands=462, total_traffic=2999992.0
+[17:09:25] INFO stat_exp: Replicate 4/geant: sndlib (V=22, E=36, traffic=gravity)
+[17:09:33] INFO sndlib: Loaded SNDlib 'germany50': |V|=50, |E|=88, demands=662, total_traffic=2365.0
+[17:09:33] INFO stat_exp: Replicate 0/germany50: sndlib (V=50, E=88, traffic=gravity)
+[17:11:05] INFO sndlib: Loaded SNDlib 'germany50': |V|=50, |E|=88, demands=662, total_traffic=2365.0
+[17:11:05] INFO stat_exp: Replicate 1/germany50: sndlib (V=50, E=88, traffic=gravity)
+[17:12:37] INFO sndlib: Loaded SNDlib 'germany50': |V|=50, |E|=88, demands=662, total_traffic=2365.0
+[17:12:37] INFO stat_exp: Replicate 2/germany50: sndlib (V=50, E=88, traffic=gravity)
+[17:14:02] INFO sndlib: Loaded SNDlib 'germany50': |V|=50, |E|=88, demands=662, total_traffic=2365.0
+[17:14:02] INFO stat_exp: Replicate 3/germany50: sndlib (V=50, E=88, traffic=gravity)
+[17:15:30] INFO sndlib: Loaded SNDlib 'germany50': |V|=50, |E|=88, demands=662, total_traffic=2365.0
+[17:15:30] INFO stat_exp: Replicate 4/germany50: sndlib (V=50, E=88, traffic=gravity)
+[17:16:58] INFO sndlib: Loaded SNDlib 'nobel-eu': |V|=28, |E|=41, demands=378, total_traffic=1898.0
+[17:16:58] INFO stat_exp: Replicate 0/nobel-eu: sndlib (V=28, E=41, traffic=gravity)
+[17:17:17] INFO sndlib: Loaded SNDlib 'nobel-eu': |V|=28, |E|=41, demands=378, total_traffic=1898.0
+[17:17:17] INFO stat_exp: Replicate 1/nobel-eu: sndlib (V=28, E=41, traffic=gravity)
+[17:17:36] INFO sndlib: Loaded SNDlib 'nobel-eu': |V|=28, |E|=41, demands=378, total_traffic=1898.0
+[17:17:36] INFO stat_exp: Replicate 2/nobel-eu: sndlib (V=28, E=41, traffic=gravity)
+[17:17:55] INFO sndlib: Loaded SNDlib 'nobel-eu': |V|=28, |E|=41, demands=378, total_traffic=1898.0
+[17:17:55] INFO stat_exp: Replicate 3/nobel-eu: sndlib (V=28, E=41, traffic=gravity)
+[17:18:15] INFO sndlib: Loaded SNDlib 'nobel-eu': |V|=28, |E|=41, demands=378, total_traffic=1898.0
+[17:18:15] INFO stat_exp: Replicate 4/nobel-eu: sndlib (V=28, E=41, traffic=gravity)
+[17:18:34] INFO stat_exp: Saved results to results/corrected_sndlib
+
+===================================================================================================================
+STATISTICAL COMPARISONS: C-TA-HLP vs HLP (Original) — Paired t-tests & Wilcoxon Signed-Rank Tests
+===================================================================================================================
+Topology     Budget Metric             Delta Mean  t-stat       p-t    p-bonf  W-stat    p-wilc     d  Sig
+-------------------------------------------------------------------------------------------------------------------
+abilene          2 Topo.Avail          -0.009645   -2.21    0.9540    1.0000     1.0    0.9688 -0.99   ns
+abilene          2 Traffic.Avail       -0.005309   -2.02    0.9433    1.0000     2.0    0.9375 -0.90   ns
+abilene          4 Topo.Avail          -0.009124   -3.92    0.9913    1.0000     0.0    1.0000 -1.75   ns
+abilene          4 Traffic.Avail       -0.004972   -1.59    0.9070    1.0000     3.0    0.9062 -0.71   ns
+abilene          6 Topo.Avail          -0.001212   -1.22    0.8552    1.0000     0.0    1.0000 -0.55   ns
+abilene          6 Traffic.Avail       -0.002231   -1.63    0.9110    1.0000     0.0    1.0000 -0.73   ns
+abilene          8 Topo.Avail          -0.000621   -1.82    0.9285    1.0000     0.0    1.0000 -0.81   ns
+abilene          8 Traffic.Avail        0.001718    2.07    0.0535    1.0000     6.0    0.1250  0.93   ns
+geant            2 Topo.Avail          -0.003165   -4.29    0.9936    1.0000     0.0    1.0000 -1.92   ns
+geant            2 Traffic.Avail       -0.000236   -0.43    0.6557    1.0000     6.0    0.6875 -0.19   ns
+geant            4 Topo.Avail          -0.002436   -2.95    0.9791    1.0000     0.0    1.0000 -1.32   ns
+geant            4 Traffic.Avail       -0.000795   -1.13    0.8391    1.0000     4.0    0.8438 -0.51   ns
+geant            6 Topo.Avail          -0.000876   -1.97    0.9402    1.0000     2.0    0.9375 -0.88   ns
+geant            6 Traffic.Avail       -0.000073   -0.14    0.5534    1.0000     6.0    0.6875 -0.06   ns
+geant            8 Topo.Avail          -0.001921   -3.55    0.9881    1.0000     0.0    1.0000 -1.59   ns
+geant            8 Traffic.Avail        0.000326    0.52    0.3149    1.0000     9.0    0.4062  0.23   ns
+germany50        2 Topo.Avail          -0.000097   -0.73    0.7468    1.0000     4.0    0.8438 -0.33   ns
+germany50        2 Traffic.Avail        0.000587    3.14    0.0175    0.5588    15.0    0.0312  1.40    *
+germany50        4 Topo.Avail          -0.000756   -4.71    0.9954    1.0000     0.0    1.0000 -2.11   ns
+germany50        4 Traffic.Avail        0.000625    1.69    0.0836    1.0000    13.0    0.0938  0.75   ns
+germany50        6 Topo.Avail          -0.000672   -1.27    0.8637    1.0000     2.0    0.9375 -0.57   ns
+germany50        6 Traffic.Avail        0.000713    3.12    0.0178    0.5699    15.0    0.0312  1.39    *
+germany50        8 Topo.Avail          -0.001001   -1.57    0.9041    1.0000     2.0    0.9375 -0.70   ns
+germany50        8 Traffic.Avail        0.000869    2.56    0.0313    1.0000    15.0    0.0312  1.15    *
+nobel-eu         2 Topo.Avail          -0.000799   -1.02    0.8168    1.0000     3.0    0.8125 -0.46   ns
+nobel-eu         2 Traffic.Avail        0.000523    0.55    0.3044    1.0000     7.0    0.3125  0.25   ns
+nobel-eu         4 Topo.Avail          -0.001035   -0.92    0.7952    1.0000     3.0    0.8125 -0.41   ns
+nobel-eu         4 Traffic.Avail        0.000256    0.31    0.3849    1.0000     5.0    0.5625  0.14   ns
+nobel-eu         6 Topo.Avail          -0.000800   -1.65    0.9129    1.0000     0.0    1.0000 -0.74   ns
+nobel-eu         6 Traffic.Avail        0.000697    1.49    0.1052    1.0000     9.0    0.1250  0.67   ns
+nobel-eu         8 Topo.Avail          -0.001813   -2.55    0.9682    1.0000     0.0    1.0000 -1.14   ns
+nobel-eu         8 Traffic.Avail        0.000377    0.38    0.3630    1.0000     9.0    0.4062  0.17   ns
+
+Significant at alpha=0.05 (uncorrected): 3/32
+Significant at alpha=0.01 (uncorrected): 0/32
+Significant after Bonferroni correction: 0/32
+
+Per-topology traffic availability advantage (TA-HLP - HLP):
+  nobel-eu: avg Delta = 0.000463, sig uncorrected 0/4, sig Bonferroni 0/4
+  abilene: avg Delta = -0.002699, sig uncorrected 0/4, sig Bonferroni 0/4
+  germany50: avg Delta = 0.000699, sig uncorrected 3/4, sig Bonferroni 0/4
+  geant: avg Delta = -0.000194, sig uncorrected 0/4, sig Bonferroni 0/4
+
+================================================================================
+DIAGNOSTIC: cells where TA-HLP underperforms HLP
+================================================================================
+Topology     Budget Metric                    All TA>=HLP    Min Delta    Max Delta Reps
+--------------------------------------------------------------------------------
+abilene          2 Topo.Avail                     FALSE    -0.018182     0.005939    5
+abilene          2 Traffic.Avail                  FALSE    -0.010478     0.004114    5
+abilene          4 Topo.Avail                     FALSE    -0.016788    -0.004000    5
+abilene          4 Traffic.Avail                  FALSE    -0.012012     0.003044    5
+abilene          6 Topo.Avail                     FALSE    -0.005121     0.000000    5
+abilene          6 Traffic.Avail                  FALSE    -0.005741     0.000000    5
+abilene          8 Topo.Avail                     FALSE    -0.001818     0.000000    5
+abilene          8 Traffic.Avail                   TRUE     0.000000     0.004424    5
+geant            2 Topo.Avail                     FALSE    -0.005753    -0.001641    5
+geant            2 Traffic.Avail                  FALSE    -0.001771     0.001372    5
+geant            4 Topo.Avail                     FALSE    -0.004810    -0.000013    5
+geant            4 Traffic.Avail                  FALSE    -0.002056     0.001935    5
+geant            6 Topo.Avail                     FALSE    -0.002225     0.000052    5
+geant            6 Traffic.Avail                  FALSE    -0.001121     0.001732    5
+geant            8 Topo.Avail                     FALSE    -0.003000    -0.000195    5
+geant            8 Traffic.Avail                  FALSE    -0.001019     0.002407    5
+germany50        2 Topo.Avail                     FALSE    -0.000421     0.000326    5
+germany50        2 Traffic.Avail                   TRUE     0.000083     0.001154    5
+germany50        4 Topo.Avail                     FALSE    -0.001208    -0.000398    5
+germany50        4 Traffic.Avail                  FALSE    -0.000421     0.001641    5
+germany50        6 Topo.Avail                     FALSE    -0.002646     0.000435    5
+germany50        6 Traffic.Avail                   TRUE     0.000249     0.001544    5
+germany50        8 Topo.Avail                     FALSE    -0.002380     0.001109    5
+germany50        8 Traffic.Avail                   TRUE     0.000316     0.002074    5
+nobel-eu         2 Topo.Avail                     FALSE    -0.003119     0.001630    5
+nobel-eu         2 Traffic.Avail                  FALSE    -0.001842     0.003305    5
+nobel-eu         4 Topo.Avail                     FALSE    -0.004979     0.001783    5
+nobel-eu         4 Traffic.Avail                  FALSE    -0.001298     0.003355    5
+nobel-eu         6 Topo.Avail                     FALSE    -0.002561     0.000000    5
+nobel-eu         6 Traffic.Avail                  FALSE    -0.000162     0.002411    5
+nobel-eu         8 Topo.Avail                     FALSE    -0.003524    -0.000275    5
+nobel-eu         8 Traffic.Avail                  FALSE    -0.003195     0.002540    5
+
+No underperformance in these sampled cells: False
+
+Results saved to: results/corrected_sndlib

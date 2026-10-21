@@ -1,4 +1,4 @@
-"""Reproduction of Table 3 (Geng et al. 2020) -- per-node compute time
+"""Historical proxy comparison for Table 3 (Geng et al. 2020) -- per-node compute time
 of OSPF, LFC, TBFH, MNP, DMPA-e, MNP-e on the Abilene + Rocketfuel
 topologies.
 
@@ -110,21 +110,22 @@ def _per_node_us(graph, fn, repeat: int = 5) -> float:
 
 
 # ------------------------------------------------------------ topology loader
-def _load_topology(name: str) -> NetworkTopology:
+def _load_topology(name: str, allow_synthetic: bool = False) -> NetworkTopology:
     if name == "Abilene":
         path = os.path.join(ROOT, "data", "gml", "Abilene.gml")
         if os.path.exists(path):
             return NetworkTopology.from_gml(path)
     from src.rocketfuel import load_rocketfuel
-    G = load_rocketfuel(name)
+    G = load_rocketfuel(name, allow_synthetic=allow_synthetic)
     return NetworkTopology(graph=G, name=name)
 
 
 # ------------------------------------------------------------- runner
-def run_table3(topologies: List[str], repeat: int, out_dir: str) -> pd.DataFrame:
+def run_table3(topologies: List[str], repeat: int, out_dir: str,
+               allow_synthetic: bool = False) -> pd.DataFrame:
     rows: List[Dict] = []
     for topo_name in topologies:
-        topo = _load_topology(topo_name)
+        topo = _load_topology(topo_name, allow_synthetic=allow_synthetic)
         G = topo.graph
         log.info("Topology %s: V=%d E=%d", topo_name, G.number_of_nodes(),
                  G.number_of_edges())
@@ -141,17 +142,17 @@ def run_table3(topologies: List[str], repeat: int, out_dir: str) -> pd.DataFrame
     out = os.path.join(out_dir, "table3_compute_time.csv")
     df.to_csv(out, index=False)
     log.info("Saved -> %s", out)
-    print("\nTable 3 reproduction: per-node compute time (us)")
+    print("\nTable 3 proxy comparison: per-node compute time (us)")
     print(df.to_string(index=False))
     return df
 
 
 def run_table4(topologies: List[str], num_trials: int, seed: int,
-                out_dir: str) -> pd.DataFrame:
+                out_dir: str, allow_synthetic: bool = False) -> pd.DataFrame:
     """Reproduction of Table 4: network availability (%) per method, per topology."""
     rows: List[Dict] = []
     for topo_name in topologies:
-        topo = _load_topology(topo_name)
+        topo = _load_topology(topo_name, allow_synthetic=allow_synthetic)
         G = topo.graph
         row = {"topology": topo_name,
                "|V|": G.number_of_nodes(),
@@ -168,7 +169,7 @@ def run_table4(topologies: List[str], num_trials: int, seed: int,
     out = os.path.join(out_dir, "table4_availability.csv")
     df.to_csv(out, index=False)
     log.info("Saved -> %s", out)
-    print("\nTable 4 reproduction: network availability (%)")
+    print("\nTable 4 proxy comparison: conditional failure coverage (%)")
     print(df.to_string(index=False))
     return df
 
@@ -181,15 +182,17 @@ def cli() -> None:
                     help="Repetitions for the timing measurement")
     ap.add_argument("--trials", type=int, default=300,
                     help="Monte Carlo trials for Table 4")
+    ap.add_argument("--allow-synthetic", action="store_true",
+                    help="Explicitly substitute missing Rocketfuel files with BA graphs")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=str, default=os.path.join(ROOT, "results"))
     ap.add_argument("--only", choices=["table3", "table4", "both"], default="both")
     args = ap.parse_args()
 
     if args.only in ("table3", "both"):
-        run_table3(args.topologies, args.repeat, args.out)
+        run_table3(args.topologies, args.repeat, args.out, allow_synthetic=args.allow_synthetic)
     if args.only in ("table4", "both"):
-        run_table4(args.topologies, args.trials, args.seed, args.out)
+        run_table4(args.topologies, args.trials, args.seed, args.out, allow_synthetic=args.allow_synthetic)
 
 
 if __name__ == "__main__":

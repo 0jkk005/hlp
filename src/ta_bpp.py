@@ -2,12 +2,13 @@
 
 Identical skeleton to ``bpp.bpp``; the marginal-gain criterion used to rank
 key links incorporates both traffic demand weights and the downstream
-Congestion Penalty Factor:
+per-flow bottleneck delivery proxy:
 
-    Δ_{C-T}(e) = Φ(e) * Σ_{(s,d) ∈ e.P} T(s,d) * p_e * A(P_repair(e))
+    Δ(e) = Σ_{(s,d) affected by e} T(s,d) * p_e * A(P_local_repair) * q(s,d,e)
 
-where Φ(e) = Π_{k ∈ P_repair(e)} min(1.0, C_k / L_post(k)) penalizes
-overloaded detours, and the stopping rule enforces a backup-link budget ``B``.
+where q is a per-flow bottleneck delivery proxy. It is not an exact
+capacity-feasible optimization or a steady-state availability estimator.
+See docs/CORRECTIONS_CHECKLIST.md before interpreting results.
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from .bpp import (
     find_key_links,
     _walk_pred,
 )
-from .path_construction import build_primary_paths, path_uses_link
+from .path_construction import build_primary_paths, detect_failure_point
 from .shortest_path import dijkstra
 from .utils import normalize_edge
 
@@ -53,69 +54,61 @@ def compute_delta_T(
     path_avail_cache: Optional[Dict[Tuple[int, int], float]] = None,
     baseline_loads: Optional[Dict[Tuple[int, int], float]] = None,
     capacity_constrained: bool = False,
-    accumulated_detour_loads: Optional[Dict[Tuple[int, int], float]] = None,
+    accumulated_detour_loads: Optional[Dict[Tuple[int, int], float]] = None,  # deprecated; ignored
     return_shifts: bool = False,
 ) -> float | Tuple[float, Dict[Tuple[int, int], float]]:
     """Traffic-weighted marginal contribution of protecting link ``e``,
-    incorporating downstream capacity congestion penalty factor Phi(e).
+    with a per-flow capacity-delivery proxy for this failure scenario.
     """
-    by_source: Dict = {}
-    for (s, d) in sd_pairs:
-        by_source.setdefault(s, []).append(d)
-
     H = graph.copy()
     a, b = normalize_edge(*e)
-    if H.has_edge(a, b):
-        H.remove_edge(a, b)
-    delta = 0.0
+    H.remove_edge(a, b)
+    detector_spts: Dict = {}
+    affected = []
     detour_shifts: Dict[Tuple[int, int], float] = {}
+    # Local repair preserves the path prefix, matching BPP forwarding in
+    # simulator.py. Do not treat an end-to-end reroute as a local repair.
+    for s, d in sd_pairs:
+        primary = paths.get((s, d), [])
+        if not primary:
+            continue
+        idx = detect_failure_point(primary, e)
+        if idx < 0:
+            continue
+        detector = primary[idx]
+        if detector not in detector_spts:
+            detector_spts[detector] = dijkstra(H, detector)
+        distances, predecessors = detector_spts[detector]
+        if distances[d] == float("inf"):
+            continue
+        detour = _walk_pred(detector, d, predecessors)
+        if not detour:
+            continue
+        repair_path = primary[:idx] + detour
+        flow_vol = traffic.get((s, d), 0.0)
+        edges = [normalize_edge(repair_path[i], repair_path[i + 1])
+                 for i in range(len(repair_path) - 1)]
+        affected.append((flow_vol, path_availability(H, repair_path), edges))
+        if capacity_constrained:
+            for edge in edges:
+                detour_shifts[edge] = detour_shifts.get(edge, 0.0) + flow_vol
 
-    for s, targets in by_source.items():
-        dist_s, pred_s = dijkstra(H, s)
-        for d in targets:
-            orig_path = paths.get((s, d), [])
-            if not orig_path:
-                continue
-            if dist_s[d] == float("inf"):
-                continue
-            new_path = _walk_pred(s, d, pred_s)
-            if not new_path:
-                continue
-            # Repair path availability in G \ {e}
-            a_repair = path_availability(H, new_path)
-            # Marginal traffic-weighted availability gain:
-            # When key link e fails (probability p_fail_e), the backup path rescues flow (s, d).
-            # The saved traffic volume is T(s, d) * p_fail_e * a_repair.
-            p_fail_e = float(graph[a][b].get("prob_fail", 0.01))
-            gain = p_fail_e * a_repair
-            flow_vol = traffic.get((s, d), 1.0)
-            delta += flow_vol * gain
-
-            # Track detour link loads for congestion penalty
-            if capacity_constrained and baseline_loads:
-                for i in range(len(new_path) - 1):
-                    k_edge = normalize_edge(new_path[i], new_path[i + 1])
-                    detour_shifts[k_edge] = detour_shifts.get(k_edge, 0.0) + flow_vol
-
-    # Apply continuous Congestion Penalty Factor:
-    # Phi(e) = prod_{k in repair} min(1.0, C_k / L_post(k))
-    if capacity_constrained and baseline_loads and detour_shifts:
-        phi = 1.0
-        for k_edge, shift in detour_shifts.items():
-            u_k, v_k = k_edge
-            if graph.has_edge(u_k, v_k):
-                cap = graph[u_k][v_k].get("capacity", None)
+    p_fail_e = float(graph[a][b].get("prob_fail", 0.01))
+    delta = 0.0
+    for flow_vol, repair_avail, edges in affected:
+        delivery_factor = 1.0
+        if capacity_constrained and baseline_loads is not None:
+            # Per-flow bottleneck proxy for THIS failure only. This is
+            # NOT a full per-scenario load model: unaffected and LFA
+            # flows require separate accounting before publication.
+            for edge in edges:
+                u, v = edge
+                cap = graph[u][v].get("capacity")
                 if cap is not None and cap > 0:
-                    prior_acc = (
-                        accumulated_detour_loads.get(k_edge, 0.0)
-                        if accumulated_detour_loads is not None
-                        else 0.0
-                    )
-                    post_load = baseline_loads.get(k_edge, 0.0) + prior_acc + shift
-                    if post_load > cap:
-                        phi *= min(1.0, cap / post_load)
-        delta *= phi
-
+                    post_load = baseline_loads.get(edge, 0.0) + detour_shifts.get(edge, 0.0)
+                    delivery_factor = min(delivery_factor, min(1.0, cap / post_load)
+                                          if post_load > 0 else 1.0)
+        delta += flow_vol * p_fail_e * repair_avail * delivery_factor
     if return_shifts:
         return delta, detour_shifts
     return delta
@@ -139,19 +132,18 @@ def ta_bpp(
     next_hops_per_c : dict
         Output of MNP-e (or LFC).
     traffic : dict
-        ``T[(s,d)]`` from empirical NetFlow or gravity model.
+        ``T[(s,d)]`` from an OD demand instance or gravity model.
     max_links : int or None
         Backup-link budget ``B``. Hard cap on protected links.
     R : float or None
         Optional topological-availability requirement ``A(G) >= R``.
         Stops early if both ``R`` and ``max_links`` would be met.
     capacity_constrained : bool
-        If True, applies Congestion Penalty Factor Phi(e) to prevent
-        buffer exhaustion on detour paths.
+        If True, applies a per-flow bottleneck delivery heuristic. It
+        does not guarantee feasibility or prevent buffer exhaustion.
     iterative : bool
-        If True, executes true iterative greedy selection, re-evaluating
-        marginal gains and cumulative detour congestion at each selection step.
-        If False, executes static single-pass ranking.
+        Retained for API compatibility. Under mutually exclusive single-link
+        failures the score of one edge does not change when another is protected.
     """
     paths = build_primary_paths(graph, next_hops_per_c)
     edge_index = build_edge_to_sd_index(paths)
@@ -171,7 +163,7 @@ def ta_bpp(
     deltas: Dict[Tuple[int, int], float] = {}
 
     if not iterative:
-        # Static single-pass ranking (baseline/ablation mode)
+        # Single-pass ranking under exclusive single-link failures
         for e, sd_pairs in key_links.items():
             deltas[e] = compute_delta_T(
                 graph, e, sd_pairs, paths, traffic,
@@ -179,7 +171,7 @@ def ta_bpp(
                 baseline_loads=baseline_loads,
                 capacity_constrained=capacity_constrained,
             )
-        sorted_keys = sorted(deltas, key=lambda x: deltas[x], reverse=True)
+        sorted_keys = sorted(deltas, key=lambda x: (-deltas[x], x))
         for e in sorted_keys:
             if max_links is not None and len(protected) >= max_links:
                 break
@@ -187,49 +179,25 @@ def ta_bpp(
                 break
             protected.append(e)
     else:
-        # True Iterative Greedy Selection (Nemhauser-Wolsey-Fisher conforming)
-        remaining_keys = set(key_links.keys())
-        accumulated_detour_loads: Dict[Tuple[int, int], float] = {
-            normalize_edge(*e): 0.0 for e in graph.edges()
-        }
-        target_budget = max_links if max_links is not None else len(key_links)
-
+        # Under an exclusive single-edge-failure model, protecting one
+        # candidate cannot add load to a DIFFERENT failure scenario. Thus
+        # static and iterative rankings coincide for this proxy objective.
+        remaining_keys = sorted(key_links)
+        target_budget = max_links if max_links is not None else len(remaining_keys)
         while remaining_keys and len(protected) < target_budget:
-            best_e = None
-            best_delta = -1.0
-            best_shifts: Dict[Tuple[int, int], float] = {}
-
-            for e in remaining_keys:
-                delta_e, shifts_e = compute_delta_T(
-                    graph, e, key_links[e], paths, traffic,
-                    path_avail_cache=path_avail_cache,
-                    baseline_loads=baseline_loads,
-                    capacity_constrained=capacity_constrained,
-                    accumulated_detour_loads=accumulated_detour_loads,
-                    return_shifts=True,
-                )
-                if delta_e > best_delta:
-                    best_delta = delta_e
-                    best_e = e
-                    best_shifts = shifts_e
-
-            if best_e is None or best_delta <= 0.0:
+            scored = [(compute_delta_T(
+                graph, e, key_links[e], paths, traffic,
+                path_avail_cache=path_avail_cache, baseline_loads=baseline_loads,
+                capacity_constrained=capacity_constrained,
+            ), e) for e in remaining_keys]
+            best_delta, best_e = max(scored, key=lambda item: (item[0], tuple(-x for x in item[1])))
+            if best_delta <= 0.0:
                 break
-
             deltas[best_e] = best_delta
             if R is not None and _approx_A_meets(graph, protected, best_e, paths, R, deltas, key_links):
                 break
-
             protected.append(best_e)
             remaining_keys.remove(best_e)
-
-            # Update accumulated detour load with expected failure volume
-            u_b, v_b = best_e
-            p_fail = float(graph[u_b][v_b].get("prob_fail", 0.01))
-            for k_edge, shift_vol in best_shifts.items():
-                accumulated_detour_loads[k_edge] = (
-                    accumulated_detour_loads.get(k_edge, 0.0) + p_fail * shift_vol
-                )
 
     if verbose:
         print(f"[TA-BPP] Protected {len(protected)} links")

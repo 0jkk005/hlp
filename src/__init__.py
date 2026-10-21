@@ -3,12 +3,12 @@
 Modules:
     topology            -- load/generate network topologies
     shortest_path       -- Dijkstra, path reconstruction
-    lfc                 -- Loop-Free Criterion baseline (Algorithm 1 in paper)
-    mnp_e               -- MNP-e (Algorithm 2 in paper)
+    lfc                 -- Loop-Free Criterion baseline (paper Section IV.A)
+    mnp_e               -- LFC-equivalent MNP-e output proxy (not Algorithm 2 implementation)
     path_construction   -- Forwarding paths from next-hop sets
     traffic_matrix      -- Gravity-model traffic matrix
     availability        -- End-to-end and network availability metrics
-    bpp                 -- Backup Path Protection (Algorithm 3 in paper)
+    bpp                 -- BPP-inspired all-upstream-flow selector (not Algorithm 3)
     ta_bpp              -- Traffic-Aware BPP  *** new contribution ***
     protection          -- Compose HLP / TA-HLP
     simulator           -- Monte Carlo single-link-failure simulator

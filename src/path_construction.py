@@ -82,3 +82,24 @@ def path_uses_link(path: List, edge: Tuple[int, int]) -> bool:
 def links_on_path(path: List) -> List[Tuple[int, int]]:
     """Undirected edge list along a path."""
     return [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+
+
+def local_repair_path(repair_graph: nx.Graph, primary_path: List) -> List:
+    """Return prefix + local repair from the upstream failure detector.
+
+    ``repair_graph`` must already have the failed edge removed. This is the
+    same BPP route shape as the failure simulator: packets cannot rewind to
+    their source when an intermediate router detects a broken link. Returns
+    an empty path when the failure is not on the primary path or no local
+    repair exists.
+    """
+    for i in range(len(primary_path) - 1):
+        if not repair_graph.has_edge(primary_path[i], primary_path[i + 1]):
+            detector, destination = primary_path[i], primary_path[-1]
+            distances, predecessors = dijkstra(repair_graph, detector)
+            if distances[destination] == float("inf"):
+                return []
+            from .shortest_path import reconstruct_path
+            detour = reconstruct_path(predecessors, detector, destination)
+            return primary_path[:i] + detour if detour else []
+    return []
