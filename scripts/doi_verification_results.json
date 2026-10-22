@@ -1,0 +1,278 @@
+[
+  {
+    "key": "geng2020hybrid",
+    "doi": "10.1109/jcn.2019.000056",
+    "status": "VERIFIED",
+    "title": "A hybrid link protection scheme for ensuring network service availability in link-state routing networks",
+    "authors": [
+      "Geng, Haijun",
+      "Zhang, Han",
+      "Shi, Xingang",
+      "Wang, Zhiliang",
+      "Yin, Xia",
+      "Zhang, Ju",
+      "Hu, Zhiguo",
+      "Wu, Yong"
+    ],
+    "venue": "Journal of Communications and Networks",
+    "volume": "22",
+    "issue": "1",
+    "page": "46-60",
+    "year": "2020",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/9042897/"
+  },
+  {
+    "key": "francois2005achieving",
+    "doi": "10.1145/1070873.1070877",
+    "status": "FAILED: HTTP Error 403: Forbidden"
+  },
+  {
+    "key": "chiesa2021survey",
+    "doi": "10.1109/COMST.2021.3063980",
+    "status": "VERIFIED",
+    "title": "A Survey of Fast-Recovery Mechanisms in Packet-Switched Networks",
+    "authors": [
+      "Chiesa, Marco",
+      "Kamisinski, Andrzej",
+      "Rak, Jacek",
+      "Retvari, Gabor",
+      "Schmid, Stefan"
+    ],
+    "venue": "IEEE Communications Surveys &amp; Tutorials",
+    "volume": "23",
+    "issue": "2",
+    "page": "1253-1301",
+    "year": "2021",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/9375492/"
+  },
+  {
+    "key": "merindol2011efficient",
+    "doi": "10.1016/j.comnet.2010.11.005",
+    "status": "VERIFIED",
+    "title": "An efficient algorithm to enable path diversity in link state routing networks",
+    "authors": [
+      "M\u00e9rindol, P.",
+      "Francois, P.",
+      "Bonaventure, O.",
+      "Cateloin, S.",
+      "Pansiot, J.-J."
+    ],
+    "venue": "Computer Networks",
+    "volume": "55",
+    "issue": "5",
+    "page": "1132-1149",
+    "year": "2011",
+    "publisher": "Elsevier BV",
+    "final_url": "https://linkinghub.elsevier.com/retrieve/pii/S1389128610003464"
+  },
+  {
+    "key": "ventre2021segment",
+    "doi": "10.1109/comst.2020.3036826",
+    "status": "VERIFIED",
+    "title": "Segment Routing: A Comprehensive Survey of Research Activities, Standardization Efforts, and Implementation Results",
+    "authors": [
+      "Ventre, Pier Luigi",
+      "Salsano, Stefano",
+      "Polverini, Marco",
+      "Cianfrani, Antonio",
+      "Abdelsalam, Ahmed",
+      "Filsfils, Clarence",
+      "Camarillo, Pablo",
+      "Clad, Francois"
+    ],
+    "venue": "IEEE Communications Surveys &amp; Tutorials",
+    "volume": "23",
+    "issue": "1",
+    "page": "182-221",
+    "year": "2021",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/9253580/"
+  },
+  {
+    "key": "foerster2019casa",
+    "doi": "10.1109/infocom.2019.8737438",
+    "status": "VERIFIED",
+    "title": "CASA: Congestion and Stretch Aware Static Fast Rerouting",
+    "authors": [
+      "Foerster, Klaus-Tycho",
+      "Pignolet, Yvonne-Anne",
+      "Schmid, Stefan",
+      "Tredan, Gilles"
+    ],
+    "venue": "IEEE INFOCOM 2019 - IEEE Conference on Computer Communications",
+    "volume": "",
+    "issue": "",
+    "page": "469-477",
+    "year": "2019",
+    "publisher": "IEEE",
+    "final_url": "https://ieeexplore.ieee.org/document/8737438/"
+  },
+  {
+    "key": "schlinker2017engineering",
+    "doi": "10.1145/3098822.3098853",
+    "status": "FAILED: HTTP Error 403: Forbidden"
+  },
+  {
+    "key": "fortz2002optimizing",
+    "doi": "10.1109/jsac.2002.1003042",
+    "status": "VERIFIED",
+    "title": "Optimizing OSPF/IS-IS weights in a changing world",
+    "authors": [
+      "Fortz, B.",
+      "Thorup, M."
+    ],
+    "venue": "IEEE Journal on Selected Areas in Communications",
+    "volume": "20",
+    "issue": "4",
+    "page": "756-767",
+    "year": "2002",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/1003042/"
+  },
+  {
+    "key": "fortz2002internet",
+    "doi": "10.1109/TNET.2002.1002900",
+    "status": "FAILED: HTTP Error 404: Not Found"
+  },
+  {
+    "key": "feldmann2001deriving",
+    "doi": "10.1109/90.929850",
+    "status": "VERIFIED",
+    "title": "Deriving traffic demands for operational IP networks: methodology and experience",
+    "authors": [
+      "Feldmann, A.",
+      "Greenberg, A.",
+      "Lund, C.",
+      "Reingold, N.",
+      "Rexford, J.",
+      "True, F."
+    ],
+    "venue": "IEEE/ACM Transactions on Networking",
+    "volume": "9",
+    "issue": "3",
+    "page": "265-279",
+    "year": "2001",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/929850/"
+  },
+  {
+    "key": "spring2002measuring",
+    "doi": "10.1145/633025.633039",
+    "status": "FAILED: HTTP Error 403: Forbidden"
+  },
+  {
+    "key": "orlowski2010sndlib",
+    "doi": "10.1002/net.20371",
+    "status": "FAILED: HTTP Error 403: Forbidden"
+  },
+  {
+    "key": "nemhauser1978analysis",
+    "doi": "10.1007/BF01588971",
+    "status": "VERIFIED",
+    "title": "An analysis of approximations for maximizing submodular set functions\u2014I",
+    "authors": [
+      "Nemhauser, G. L.",
+      "Wolsey, L. A.",
+      "Fisher, M. L."
+    ],
+    "venue": "Mathematical Programming",
+    "volume": "14",
+    "issue": "1",
+    "page": "265-294",
+    "year": "1978",
+    "publisher": "Springer Science and Business Media LLC",
+    "final_url": "https://link.springer.com/article/10.1007/BF01588971?error=cookies_not_supported&code=0c101864-796c-408e-99f3-9c03966ccfcb"
+  },
+  {
+    "key": "feige1998threshold",
+    "doi": "10.1145/285055.285059",
+    "status": "FAILED: HTTP Error 403: Forbidden"
+  },
+  {
+    "key": "benjamini1995controlling",
+    "doi": "10.1111/j.2517-6161.1995.tb02031.x",
+    "status": "FAILED: HTTP Error 403: Forbidden"
+  },
+  {
+    "key": "li2012unified",
+    "doi": "10.1109/tnsm.2012.070512.110138",
+    "status": "VERIFIED",
+    "title": "A Unified Approach to Routing Protection in IP Networks",
+    "authors": [
+      "Li, Qi",
+      "Xu, Mingwei",
+      "Wu, Jianping",
+      "Lee, Patrick P. C.",
+      "Shi, Xingang",
+      "Chiu, Dah Ming",
+      "Yang, Yuan"
+    ],
+    "venue": "IEEE Transactions on Network and Service Management",
+    "volume": "9",
+    "issue": "3",
+    "page": "306-319",
+    "year": "2012",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/6233058/"
+  },
+  {
+    "key": "bramas2025simple",
+    "doi": "10.1109/ton.2025.3534332",
+    "status": "VERIFIED",
+    "title": "A Simple and General Operational Framework to Deploy Optimal Routes With Source Routing",
+    "authors": [
+      "Bramas, Quentin",
+      "Luttringer, Jean-Romain",
+      "M\u00e9rindol, Pascal"
+    ],
+    "venue": "IEEE Transactions on Networking",
+    "volume": "33",
+    "issue": "3",
+    "page": "1361-1372",
+    "year": "2025",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/10859316/"
+  },
+  {
+    "key": "verdi2023infarr",
+    "doi": "10.1109/tnsm.2023.3283459",
+    "status": "VERIFIED",
+    "title": "InFaRR: In-Network Fast ReRouting",
+    "authors": [
+      "Verdi, F\u00e1bio L.",
+      "Luz, Gustavo V."
+    ],
+    "venue": "IEEE Transactions on Network and Service Management",
+    "volume": "20",
+    "issue": "3",
+    "page": "2319-2330",
+    "year": "2023",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/10144669/"
+  },
+  {
+    "key": "chiesa2021robust",
+    "doi": "10.1109/TNSM.2021.3069151",
+    "status": "FAILED: HTTP Error 404: Not Found"
+  },
+  {
+    "key": "merling2021rolps",
+    "doi": "10.1109/tnsm.2021.3090843",
+    "status": "VERIFIED",
+    "title": "Robust LFA Protection for Software-Defined Networks (RoLPS)",
+    "authors": [
+      "Merling, Daniel",
+      "Lindner, Steffen",
+      "Menth, Michael"
+    ],
+    "venue": "IEEE Transactions on Network and Service Management",
+    "volume": "18",
+    "issue": "3",
+    "page": "2570-2586",
+    "year": "2021",
+    "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+    "final_url": "https://ieeexplore.ieee.org/document/9461214/"
+  }
+]

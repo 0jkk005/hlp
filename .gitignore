@@ -21,16 +21,16 @@ dist/
 htmlcov/
 
 # Local developer scripts and temporary experiment scratch
-scripts/
-results_*/
+# scripts/
+# results_*/
 archive/
 
 # Raw CAIDA Rocketfuel trace dumps (not distributed with repo)
 data/rocketfuel/*.cch
 
 # Paper manuscripts and documentation drafts (Strictly local)
-docx/
-latex/
+# docx/
+# latex/
 
 # IDE and editors
 .vscode/
